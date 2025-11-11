@@ -1,0 +1,64 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Page-1" id="BMJnnEK8Hhk-X_2djFaR">
+    <mxGraphModel dx="763" dy="578" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-1" value="API Gateway" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="200" y="200" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-2" value="versioning-service" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="280" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-3" value="verfication-runner" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="520" y="200" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-5" value="version database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;" vertex="1" parent="1">
+          <mxGeometry x="360" y="120" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-7" value="latex-runner" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="360" y="440" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-9" value="PDF file server" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="200" y="360" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-12" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-2" target="ZwMTojkPxuPAbHz-2KGC-7">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-13" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-2" target="ZwMTojkPxuPAbHz-2KGC-3">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-14" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-1" target="ZwMTojkPxuPAbHz-2KGC-2">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-15" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-2" target="ZwMTojkPxuPAbHz-2KGC-5">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="360" y="270" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-16" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-7" target="ZwMTojkPxuPAbHz-2KGC-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ZwMTojkPxuPAbHz-2KGC-17" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1" source="ZwMTojkPxuPAbHz-2KGC-1" target="ZwMTojkPxuPAbHz-2KGC-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="480" y="460" as="sourcePoint" />
+            <mxPoint x="530" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
