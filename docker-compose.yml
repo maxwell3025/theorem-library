@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql
+    ports:
+      - "8000:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    restart: unless-stopped
+    # command: postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+  dependency-service:
+    build:
+      context: ./dependency-service
+      additional_contexts:
+        - common=./common
+      dockerfile: Dockerfile
+    container_name: dependency-service
+    ports:
+      - "8001:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "httpx", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+  verification-service:
+    build:
+      context: ./verification-service
+      additional_contexts:
+        - common=./common
+      dockerfile: Dockerfile
+    container_name: verification-service
+    ports:
+      - "8002:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "httpx", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+  pdf-service:
+    build:
+      context: ./pdf-service
+      additional_contexts:
+        - common=./common
+      dockerfile: Dockerfile
+    container_name: pdf-service
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "httpx", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+  latex-service:
+    build:
+      context: ./latex-service
+      additional_contexts:
+        - common=./common
+      dockerfile: Dockerfile
+    container_name: latex-service
+    ports:
+      - "8004:8000"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - PDF_SERVICE_BASE=http://pdf-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pdf-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "httpx", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+
+volumes:
+  pgdata:
+
+networks:
+  theorem-library:
