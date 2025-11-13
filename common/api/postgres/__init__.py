@@ -9,6 +9,7 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", default="theorem_library")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", default="postgres")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", default="5432")
 
+
 def check_health() -> common.model.HealthCheckDependency:
     database_status: common.model.DependencyHealthCheckStatus = "unhealthy"
     connection = None
