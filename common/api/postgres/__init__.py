@@ -13,6 +13,8 @@ def check_health() -> common.model.HealthCheckDependency:
     database_status: common.model.DependencyHealthCheckStatus = "unhealthy"
     connection = None
     # Attempt a connection to the Postgres database to check if it is healthy
+    # TODO Check if there is a less intrusive healthcheck
+    # For instance, this can fail if the database is alive, but simply has exhausted its connections
     try:
         timer_start = time.perf_counter()
         connection = psycopg.connect(

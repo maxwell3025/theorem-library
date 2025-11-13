@@ -93,6 +93,9 @@ This will also asynchronously update the LaTeX status of each Git repo/commit pa
 ## Data Flow
 ### Healthcheck
 Healthcheck data will be automatically collected by Docker and used to manage container starting and killing.
+The healthchecks for each service will trigger healthchecks for their dependencies.
+This means, for example, that the services that interact with the database will attempt to connect to the database when their healthcheck endpoints are queried.
+See the Service Boundaries section for information on dependency.
 
 ## Communication Patterns
 ### Healthcheck
@@ -113,4 +116,13 @@ These healthcheck responses will have the format
 The status code will reflect the health of the container itself, not its dependencies, so that Docker doesn't restart containers because of unhealthy dependencies.
 
 ## Technology Stack
-This project will use FastAPI for all of the APIs and use Posgres for the database.
+- **Docker \[Compose\]**: This is the container runtime for this system.
+  This is a requirement for the assignment.
+- **FastAPI**: This is how the custom services are implements in this system.
+  This is a requirement for the assignment.
+- **Postgres**: This is the database that this system uses.
+  I am using Postgres because I am familliar with it and I am dealing with structured data.
+- **Lean 4**: This is the proof assistant language that this system has first-class support for.
+  I am using Lean 4 since it it currently very popular, and it has a good ecosystem already.
+- **TeXLive**: This is the typesetting language that this system has first-class support for
+  I am using TeXLive because it is the most popular LaTeX distribution.
