@@ -1,5 +1,5 @@
 import logging
-from common.logging_config import configure_logging
+from common.logging_config import configure_logging, configure_logging_celery
 import celery
 import celery.utils.log
 import docker
@@ -7,9 +7,11 @@ import os
 
 configure_logging()
 
-logger = celery.utils.log.get_task_logger("verification-worker")
-
 celery_app = celery.Celery("verification-worker", broker="amqp://rabbitmq//")
+
+configure_logging_celery(celery_app)
+
+logger = celery.utils.log.get_task_logger("verification-worker")
 
 @celery_app.task
 def process_verification_task(task_data: str) -> None:

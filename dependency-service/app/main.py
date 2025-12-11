@@ -4,8 +4,9 @@ import model
 import common.model
 import common.api.postgres
 import common.middleware
-from common.logging_config import configure_logging
+from common.logging_config import configure_logging, configure_logging_uvicorn
 import typing
+import uvicorn
 
 configure_logging()
 
@@ -35,3 +36,12 @@ async def health_check() -> fastapi.Response:
         content=response_content.model_dump_json(exclude_none=True),
         status_code=status_code,
     )
+
+
+if __name__ == "__main__":
+    # Get uvicorn's default logging config and customize it
+    log_config = uvicorn.config.LOGGING_CONFIG
+    configure_logging_uvicorn(log_config)
+    
+    # Start uvicorn with custom logging config
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=log_config)
