@@ -18,7 +18,7 @@ logger = logging.Logger("verification-service")
 
 app = fastapi.FastAPI()
 
-celery_app = celery.Celery("verification-service", broker="amqp://guest@rabbitmq//")
+celery_app = celery.Celery("verification-service", broker="amqp://rabbitmq//")
 
 app.add_middleware(common.middleware.CorrelationIdMiddleware)
 

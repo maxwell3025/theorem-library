@@ -9,7 +9,17 @@ import pytest
 import subprocess
 import httpx
 import os
+import logging
 from typing import Generator
+
+# Configure logging for tests
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s][%(name)s][%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+logger = logging.getLogger(__name__)
 
 
 SERVICES = {
@@ -50,9 +60,9 @@ def docker_compose():
     services_already_running = are_services_running(project_root)
 
     if services_already_running:
-        print("=== Using existing docker-compose instance ===")
+        logger.info("Using existing docker-compose instance")
     else:
-        print("=== Starting docker-compose ===")
+        logger.info("Starting docker-compose")
         subprocess.run(
             ["docker", "compose", "up", "--build", "-d", "--wait"],
             cwd=project_root,
@@ -63,15 +73,15 @@ def docker_compose():
     yield
 
     if services_already_running:
-        print("\n=== Keeping existing docker-compose instance running ===")
+        logger.info("Keeping existing docker-compose instance running")
     else:
-        print("\n=== Stopping docker-compose ===")
+        logger.info("Stopping docker-compose")
         subprocess.run(
             ["docker", "compose", "down"],
             cwd=project_root,
             capture_output=True,
         )
-        print("=== Docker-compose stopped ===")
+        logger.info("Docker-compose stopped")
 
 
 @pytest.fixture
