@@ -170,6 +170,10 @@ services:
         condition: service_healthy
       verification-service:
         condition: service_healthy
+      pdf-service:
+        condition: service_healthy
+      latex-service:
+        condition: service_healthy
 
 volumes:
   pgdata:
