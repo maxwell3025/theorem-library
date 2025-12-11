@@ -9,7 +9,7 @@ import uvicorn
 
 configure_logging()
 
-logger = logging.Logger("pdf-service")
+logger = logging.getLogger("pdf-service")
 
 app = fastapi.FastAPI()
 

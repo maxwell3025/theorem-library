@@ -11,7 +11,7 @@ import uvicorn
 
 configure_logging()
 
-logger = logging.Logger("latex-service")
+logger = logging.getLogger("latex-service")
 
 app = fastapi.FastAPI()
 

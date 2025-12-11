@@ -11,7 +11,7 @@ import uvicorn
 
 configure_logging()
 
-logger = logging.Logger("verification-service")
+logger = logging.getLogger("verification-service")
 
 app = fastapi.FastAPI()
 

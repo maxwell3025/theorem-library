@@ -4,7 +4,7 @@ import typing
 if typing.TYPE_CHECKING:
     import celery
 
-LOGGING_FORMAT = "[%(asctime)s][%(name)s][%(levelname)s] %(message)s"
+LOGGING_FORMAT = "[%(asctime)s][%(name)-20s][%(levelname)s] %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 

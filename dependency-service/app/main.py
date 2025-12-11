@@ -10,7 +10,7 @@ import uvicorn
 
 configure_logging()
 
-logger = logging.Logger("dependency-service")
+logger = logging.getLogger("dependency-service")
 
 app = fastapi.FastAPI()
 

@@ -11,7 +11,12 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     restart: unless-stopped
-    # command: postgres
+    command: |
+      postgres
+      -c log_destination=stderr
+      -c logging_collector=off
+      -c log_line_prefix='[%m][postgres            ][%e] '
+      -c log_timezone=UTC
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
       interval: 10s
@@ -126,6 +131,8 @@ services:
   rabbitmq:
     image: rabbitmq:4-management
     container_name: rabbitmq
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     ports:
       - "8006:5672"
       - "8007:15672"
