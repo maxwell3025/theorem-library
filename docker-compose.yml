@@ -62,14 +62,46 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
+      - VERIFICATION_TASK_TAG=${VERIFICATION_TASK_TAG}
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "httpx", "http://localhost:8000/health"]
       interval: 10s
       timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - theorem-library
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  verification-task:
+    build:
+      context: ./verification-task
+      additional_contexts:
+        - common=./common
+      tags:
+        - ${VERIFICATION_TASK_TAG}
+      dockerfile: Dockerfile
+    container_name: verification-task
+    networks:
+      - theorem-library
+    profiles:
+      - dynamic
+  rabbitmq:
+    image: rabbitmq:4
+    container_name: rabbitmq
+    ports:
+      - "8006:5672"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
       retries: 5
       start_period: 10s
     networks:
@@ -125,6 +157,19 @@ services:
       start_period: 10s
     networks:
       - theorem-library
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - theorem-library
+    depends_on:
+      dependency-service:
+        condition: service_healthy
+      verification-service:
+        condition: service_healthy
 
 volumes:
   pgdata:
