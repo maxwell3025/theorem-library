@@ -1,12 +1,15 @@
 import logging
-import common.logging_config
+from common.logging_config import configure_logging
 import celery
+import celery.utils.log
 import docker
 import os
 
-logger = logging.Logger("verification-service")
+configure_logging()
 
-celery_app = celery.Celery("verification-service", broker="amqp://rabbitmq//")
+logger = celery.utils.log.get_task_logger("verification-worker")
+
+celery_app = celery.Celery("verification-worker", broker="amqp://rabbitmq//")
 
 @celery_app.task
 def process_verification_task(task_data: str) -> None:
@@ -21,7 +24,7 @@ def process_verification_task(task_data: str) -> None:
     )
 
     # Get the network name
-    network_name = "theorem-library"
+    network_name = "theorem-library_theorem-library"
 
     try:
         # Run a new container instance of the verification-task
