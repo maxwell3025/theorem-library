@@ -4,9 +4,10 @@ import model
 import common.model
 import common.api.postgres
 import common.middleware
+import common.logging_config
 import typing
 
-logger = logging.Logger("versioning-service")
+logger = logging.Logger("dependency-service")
 
 app = fastapi.FastAPI()
 

@@ -10,18 +10,18 @@ import logging
 def pretty_print_response(response: httpx.Response, logger: logging.Logger) -> None:
     """
     Pretty-print an HTTP response including status, headers, and body.
-    
+
     Args:
         response: The httpx.Response object to print.
         logger: The logger instance to use for output.
     """
     logger.info(f"HTTP {response.status_code} {response.reason_phrase}")
-    
+
     # Print headers
     logger.info("Headers:")
     for key, value in response.headers.items():
         logger.info(f"  {key}: {value}")
-    
+
     # Print body
     logger.info("Body:")
     try:

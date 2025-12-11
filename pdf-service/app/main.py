@@ -3,6 +3,7 @@ import logging
 import model
 import common.model
 import common.middleware
+import common.logging_config
 import typing
 
 logger = logging.Logger("pdf-service")

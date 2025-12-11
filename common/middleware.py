@@ -18,7 +18,10 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
 
-        if request.headers.get("X-Correlation-ID") is None:
+        if (
+            request.headers.get("X-Correlation-ID") is None
+            and request.url.path != "/health"
+        ):
             logger.warning(
                 f"Received request without header X-Correlation-ID. Setting X-Correlation-ID={correlation_id}"
             )

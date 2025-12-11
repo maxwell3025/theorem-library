@@ -4,6 +4,7 @@ import model
 import common.model
 import common.api.postgres
 import common.middleware
+import common.logging_config
 import typing
 import os
 

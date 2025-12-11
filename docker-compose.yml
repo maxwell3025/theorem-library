@@ -93,10 +93,11 @@ services:
     profiles:
       - dynamic
   rabbitmq:
-    image: rabbitmq:4
+    image: rabbitmq:4-management
     container_name: rabbitmq
     ports:
       - "8006:5672"
+      - "8007:15672"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
