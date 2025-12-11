@@ -3,11 +3,14 @@ import logging
 import model
 import common.model
 import common.api.postgres
+import common.middleware
 import typing
 
 logger = logging.Logger("versioning-service")
 
 app = fastapi.FastAPI()
+
+app.add_middleware(common.middleware.CorrelationIdMiddleware)
 
 
 @app.get("/health", response_model=model.HealthCheckResponse)

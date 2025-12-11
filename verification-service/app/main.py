@@ -3,8 +3,8 @@ import logging
 import model
 import common.model
 import common.api.postgres
+import common.middleware
 import typing
-import uuid
 import celery
 import docker
 import os
@@ -20,26 +20,7 @@ app = fastapi.FastAPI()
 
 celery_app = celery.Celery("verification-service", broker="amqp://guest@rabbitmq//")
 
-
-@app.middleware("http")
-async def add_correlation_id(request: fastapi.Request, call_next):
-    correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
-    if request.headers.get("X-Correlation-ID") is None:
-        logger.warning(
-            f"Received request without header X-Correlation-ID. Setting X-Correlation-ID={correlation_id}"
-        )
-
-    # Here, we set the correlation ID in the request so that the request handler can safely depend on the header.
-    # This is done unconditionally, since it should do nothing if X-Correlation-ID is aready set.
-    headers = request.headers.mutablecopy()
-    headers["X-Correlation-ID"] = correlation_id
-    request.scope["headers"] = headers.raw
-
-    response: fastapi.Response = await call_next(request)
-
-    response.headers["X-Correlation-ID"] = correlation_id
-
-    return response
+app.add_middleware(common.middleware.CorrelationIdMiddleware)
 
 
 @app.get("/health", response_model=model.HealthCheckResponse)

@@ -3,12 +3,15 @@ import logging
 import model
 import common.model
 import common.api.postgres
+import common.middleware
 import typing
 import os
 
 logger = logging.Logger("latex-service")
 
 app = fastapi.FastAPI()
+
+app.add_middleware(common.middleware.CorrelationIdMiddleware)
 
 PDF_SERVICE_BASE = os.getenv("PDF_SERVICE_BASE", default="http://pdf-service:8000")
 
