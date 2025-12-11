@@ -1,6 +1,7 @@
 """
 Tests for the PDF service endpoints.
 """
+
 import pytest
 import httpx
 
@@ -8,13 +9,13 @@ import httpx
 def test_health_check(http_client: httpx.Client, pdf_service_url: str):
     """Test that the PDF service health check endpoint returns healthy status."""
     response = http_client.get(f"{pdf_service_url}/health")
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     assert "status" in data
     assert data["status"] == "healthy"
-    
+
     # PDF service should not have postgres dependency
     if "dependencies" in data:
         # If dependencies exist, they should all be healthy
@@ -22,8 +23,10 @@ def test_health_check(http_client: httpx.Client, pdf_service_url: str):
             assert dep_info["status"] == "healthy"
 
 
-def test_health_check_has_correlation_id(http_client: httpx.Client, pdf_service_url: str):
+def test_health_check_has_correlation_id(
+    http_client: httpx.Client, pdf_service_url: str
+):
     """Test that health check responses include X-Correlation-ID header."""
     response = http_client.get(f"{pdf_service_url}/health")
-    
+
     assert "X-Correlation-ID" in response.headers

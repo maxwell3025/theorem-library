@@ -10,14 +10,14 @@ logger = logging.getLogger(__name__)
 class CorrelationIdMiddleware(BaseHTTPMiddleware):
     """
     Middleware that ensures all requests have a correlation ID for tracking.
-    
+
     If a request doesn't include an X-Correlation-ID header, one is generated.
     The correlation ID is added to both the request headers and response headers.
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
         correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
-        
+
         if request.headers.get("X-Correlation-ID") is None:
             logger.warning(
                 f"Received request without header X-Correlation-ID. Setting X-Correlation-ID={correlation_id}"
