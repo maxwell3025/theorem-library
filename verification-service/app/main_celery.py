@@ -8,11 +8,11 @@ import docker
 
 configure_logging()
 
-celery_app = celery.Celery("verification-worker", broker="amqp://rabbitmq//")
+celery_app = celery.Celery("main_celery", broker="amqp://rabbitmq//")
 
 configure_logging_celery(celery_app)
 
-logger = celery.utils.log.get_task_logger("verification-worker")
+logger = celery.utils.log.get_task_logger("main_celery")
 
 verification_task_name = config.docker.verification_task_name
 
