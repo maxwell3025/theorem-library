@@ -224,11 +224,11 @@ services:
       test:
       - CMD
       - celery
+      - --app
+      - main_celery
       - inspect
       - ping
-      - --app
-      - tasks.add
-      timeout: 1s
+      timeout: 2s
     networks:
     - theorem-library
     ports:

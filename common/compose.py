@@ -122,7 +122,8 @@ class DockerComposeConfig(ComposeSpecification):
             },
             restart="unless-stopped",
             healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "celery", "inspect", "ping", "--app", "tasks.add"],
+                test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
+                timeout="2s",
             ),
             networks=["theorem-library"],
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],
