@@ -31,9 +31,9 @@ def process_verification_task(task_data: str) -> None:
     try:
         # Run a new container instance of the verification-task
         container = client.containers.run(
-            image=f"{project_name}-{verification_task_name}:latest",
+            image=f"{project_name}-{verification_task_name}",
             network=network_name,
-            name=f"{project_name}_verification_task_{uuid.uuid4()}",
+            name=f"verification-task-{uuid.uuid4()}",
             detach=True,
             remove=True,  # Auto-remove container when it exits
             environment={"TASK_DATA": task_data},
