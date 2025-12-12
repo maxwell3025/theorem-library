@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 
 from common.compose import compose_specification
-from compose_pydantic import Condition # type: ignore[import-untyped]
+from compose_pydantic import Condition  # type: ignore[import-untyped]
 
 
 def main():

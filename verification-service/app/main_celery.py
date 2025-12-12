@@ -18,6 +18,7 @@ verification_task_name = config.docker.verification_task_name
 
 project_name = config.docker.project_name
 
+
 @celery_app.task
 def process_verification_task(task_data: str) -> None:
     logger.info(f"Processing verification task with data: {task_data}")
@@ -50,7 +51,9 @@ def process_verification_task(task_data: str) -> None:
         logger.info(f"Verification task logs: {logs}")
 
     except docker.errors.ImageNotFound:
-        logger.error(f"Docker image not found: {project_name}-{verification_task_name}:latest")
+        logger.error(
+            f"Docker image not found: {project_name}-{verification_task_name}:latest"
+        )
         raise
     except docker.errors.APIError as e:
         logger.error(f"Docker API error: {e}")
