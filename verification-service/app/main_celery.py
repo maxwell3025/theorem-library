@@ -33,7 +33,7 @@ def process_verification_task(task_data: str) -> None:
         container = client.containers.run(
             image=f"{project_name}-{verification_task_name}",
             network=network_name,
-            name=f"verification-task-{uuid.uuid4()}",
+            name=f"verification-task-{celery.current_task.request.id}",
             detach=True,
             remove=True,  # Auto-remove container when it exits
             environment={"TASK_DATA": task_data},
