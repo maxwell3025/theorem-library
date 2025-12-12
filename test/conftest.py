@@ -10,7 +10,13 @@ import subprocess
 import httpx
 import os
 import logging
+import sys
 from typing import Generator
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from scripts import generate_env
+from scripts import generate_compose
 
 
 logging.basicConfig(
@@ -51,36 +57,67 @@ def docker_compose():
 
     This fixture checks if services are already running using docker compose ps.
     If so, it uses the existing instance and does not tear it down. If services
-    are not running, it starts docker-compose with --build and tears it down
-    after tests complete.
+    are not running, it generates .env and docker-compose.yml files, then starts
+    docker-compose with --build and tears it down after tests complete.
     """
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     services_already_running = are_services_running(project_root)
 
-    if services_already_running:
-        logger.info("Using existing docker-compose instance")
-    else:
-        logger.info("Starting docker-compose")
-        subprocess.run(
-            ["docker", "compose", "up", "--build", "-d", "--wait"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-        ).check_returncode()
+    exception = None
+    try:
+        if not services_already_running:
+            logger.info("Generating .env file")
+            sys.argv = [
+                "generate_env.py",
+                "--output",
+                os.path.join(project_root, ".env"),
+            ]
+            generate_env.main()
 
-    yield
+            logger.info("Generating docker-compose.yml file")
+            sys.argv = [
+                "generate_compose.py",
+                "--output",
+                os.path.join(project_root, "docker-compose.yml"),
+            ]
+            generate_compose.main()
 
-    if services_already_running:
-        logger.info("Keeping existing docker-compose instance running")
-    else:
-        logger.info("Stopping docker-compose")
-        subprocess.run(
-            ["docker", "compose", "down"],
-            cwd=project_root,
-            capture_output=True,
-        )
-        logger.info("Docker-compose stopped")
+        if services_already_running:
+            logger.info("Using existing docker-compose instance")
+        else:
+            logger.info("Starting docker-compose")
+            subprocess.run(
+                ["docker", "compose", "up", "--build", "-d", "--wait"],
+                cwd=project_root,
+                capture_output=False,
+                text=True,
+            ).check_returncode()
+
+        yield
+    except Exception as e:
+        exception = e
+    finally:
+        if services_already_running:
+            logger.info("Keeping existing docker-compose instance running")
+        else:
+            logger.info("Stopping docker-compose")
+            subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "down",
+                    "--volumes",
+                    "--remove-orphans",
+                    "--rmi",
+                    "all",
+                ],
+                cwd=project_root,
+                capture_output=True,
+            )
+            logger.info("Docker-compose stopped")
+        if exception:
+            raise exception
 
 
 @pytest.fixture

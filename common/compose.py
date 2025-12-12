@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from compose_pydantic import ( # type: ignore[import-untyped]
+from compose_pydantic import (  # type: ignore[import-untyped]
     ComposeSpecification,
     Service,
     BuildItem,

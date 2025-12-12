@@ -8,8 +8,8 @@ fi
 
 pip install -r requirements-dev.txt
 
-python generate_env.py
+python -m scripts.generate_env
 
-python generate_compose.py
+python -m scripts.generate_compose
 
 docker compose down --rmi all --volumes --remove-orphans
