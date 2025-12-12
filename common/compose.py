@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, List
 from compose_pydantic import (  # type: ignore[import-untyped]
     ComposeSpecification,
     Service,
@@ -6,15 +6,9 @@ from compose_pydantic import (  # type: ignore[import-untyped]
     Healthcheck,
     Condition,
 )
+from compose_pydantic.models import ListOfStrings
 
-
-class HealthcheckWithDefaults(Healthcheck):
-    """Base Docker healthcheck configuration."""
-
-    interval: str = "1s"
-    retries: float = 10
-    timeout: str = "1s"
-    start_period: str = "1s"
+from common.config import config
 
 
 class BuildItemModernized(BuildItem):
@@ -29,12 +23,37 @@ class ServiceModernized(Service):
     build: Optional[BuildItemModernized] = None
 
 
+class HealthcheckWithDefaults(Healthcheck):
+    """Base Docker healthcheck configuration."""
+
+    test: Union[str, List[str]] = ["CMD", "httpx", "http://localhost:8000/health"]
+    interval: str = "1s"
+    retries: float = 10
+    timeout: str = "1s"
+    start_period: str = "1s"
+
+
+class ServiceWithDefaults(ServiceModernized):
+    """Service with default values."""
+
+    restart: str = "unless-stopped"
+    networks: ListOfStrings = ListOfStrings(["theorem-library"])
+    healthcheck: Optional[Healthcheck] = HealthcheckWithDefaults()
+
+
+class BuildItemWithDefaults(BuildItemModernized):
+    """Build item with default values."""
+
+    additional_contexts: Optional[List[str]] = ["common=./common"]
+    dockerfile: str = "Dockerfile"
+
+
 class DockerComposeConfig(ComposeSpecification):
     """Docker Compose configuration using compose-pydantic."""
 
-    name: str = "${DOCKER_PROJECT_NAME}"
+    name: str = config.project_name
     services: Dict[str, ServiceModernized] = {
-        "postgres": ServiceModernized(
+        "postgres": ServiceWithDefaults(
             image="postgres:18",
             container_name="postgres",
             volumes=["pgdata:/var/lib/postgresql"],
@@ -42,9 +61,8 @@ class DockerComposeConfig(ComposeSpecification):
             environment=[
                 "POSTGRES_USER=${POSTGRES_USER}",
                 "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
-                "POSTGRES_DB=${POSTGRES_DATABASE}",
+                f"POSTGRES_DB={config.postgres.database}",
             ],
-            restart="unless-stopped",
             command=[
                 "postgres",
                 "-c",
@@ -59,9 +77,8 @@ class DockerComposeConfig(ComposeSpecification):
             healthcheck=HealthcheckWithDefaults(
                 test=["CMD", "pg_isready", "-U", "postgres"],
             ),
-            networks=["theorem-library"],
         ),
-        "dependency-service": ServiceModernized(
+        "dependency-service": ServiceWithDefaults(
             build=BuildItemModernized(
                 context="./dependency-service",
                 additional_contexts=["common=./common"],
@@ -74,17 +91,10 @@ class DockerComposeConfig(ComposeSpecification):
                 "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
             ],
             depends_on={"postgres": {"condition": Condition.service_healthy}},
-            restart="unless-stopped",
-            healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "httpx", "http://localhost:8000/health"],
-            ),
-            networks=["theorem-library"],
         ),
-        "verification-service": ServiceModernized(
-            build=BuildItemModernized(
+        "verification-service": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
                 context="./verification-service",
-                additional_contexts=["common=./common"],
-                dockerfile="Dockerfile",
             ),
             command=["python", "main_fastapi.py"],
             container_name="verification-service",
@@ -97,17 +107,10 @@ class DockerComposeConfig(ComposeSpecification):
                 "postgres": {"condition": Condition.service_healthy},
                 "rabbitmq": {"condition": Condition.service_healthy},
             },
-            restart="unless-stopped",
-            healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "httpx", "http://localhost:8000/health"],
-            ),
-            networks=["theorem-library"],
         ),
-        "verification-worker": ServiceModernized(
-            build=BuildItemModernized(
+        "verification-worker": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
                 context="./verification-service",
-                additional_contexts=["common=./common"],
-                dockerfile="Dockerfile",
             ),
             command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
             container_name="verification-worker",
@@ -125,49 +128,34 @@ class DockerComposeConfig(ComposeSpecification):
                 test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
                 timeout="2s",
             ),
-            networks=["theorem-library"],
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],
         ),
-        "verification-task": ServiceModernized(
-            build=BuildItemModernized(
+        "verification-task": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
                 context="./verification-task",
-                additional_contexts=["common=./common"],
-                dockerfile="Dockerfile",
             ),
             deploy={"replicas": 0},
         ),
-        "rabbitmq": ServiceModernized(
+        "rabbitmq": ServiceWithDefaults(
             image="rabbitmq:4-management",
             container_name="rabbitmq",
             volumes=["./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"],
             ports=["8006:5672", "8007:15672"],
-            restart="unless-stopped",
             healthcheck=HealthcheckWithDefaults(
                 test=["CMD", "rabbitmq-diagnostics", "-q", "ping"],
             ),
-            networks=["theorem-library"],
         ),
-        "pdf-service": ServiceModernized(
-            build=BuildItemModernized(
+        "pdf-service": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
                 context="./pdf-service",
-                additional_contexts=["common=./common"],
-                dockerfile="Dockerfile",
             ),
             container_name="pdf-service",
             ports=["8003:8000"],
-            environment=["SERVICES_PDF_SERVICE_BASE=${SERVICES_PDF_SERVICE_BASE}"],
-            depends_on={"postgres": {"condition": "service_healthy"}},
-            restart="unless-stopped",
-            healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "httpx", "http://localhost:8000/health"],
-            ),
-            networks=["theorem-library"],
+            depends_on={"postgres": {"condition": Condition.service_healthy}},
         ),
-        "latex-service": ServiceModernized(
-            build=BuildItemModernized(
+        "latex-service": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
                 context="./latex-service",
-                additional_contexts=["common=./common"],
-                dockerfile="Dockerfile",
             ),
             container_name="latex-service",
             ports=["8004:8000"],
@@ -179,23 +167,18 @@ class DockerComposeConfig(ComposeSpecification):
                 "postgres": {"condition": Condition.service_healthy},
                 "pdf-service": {"condition": Condition.service_healthy},
             },
-            restart="unless-stopped",
-            healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "httpx", "http://localhost:8000/health"],
-            ),
-            networks=["theorem-library"],
         ),
-        "nginx": ServiceModernized(
+        "nginx": ServiceWithDefaults(
             image="nginx:latest",
             ports=["80:80"],
             volumes=["./nginx/nginx.conf:/etc/nginx/conf.d/default.conf"],
-            networks=["theorem-library"],
             depends_on={
                 "dependency-service": {"condition": Condition.service_healthy},
                 "verification-service": {"condition": Condition.service_healthy},
                 "pdf-service": {"condition": Condition.service_healthy},
                 "latex-service": {"condition": Condition.service_healthy},
             },
+            healthcheck=None
         ),
     }
     volumes: Optional[Dict[str, Optional[Dict]]] = {"pgdata": None}

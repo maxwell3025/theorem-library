@@ -1,5 +1,3 @@
-import logging
-import uuid
 from common.logging_config import configure_logging, configure_logging_celery
 from common.config import config
 import celery
@@ -14,9 +12,9 @@ configure_logging_celery(celery_app)
 
 logger = celery.utils.log.get_task_logger("main_celery")
 
-verification_task_name = config.docker.verification_task_name
+verification_task_name = config.verification_config.verification_task_name
 
-project_name = config.docker.project_name
+project_name = config.project_name
 
 
 @celery_app.task

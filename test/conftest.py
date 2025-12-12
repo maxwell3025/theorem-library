@@ -90,7 +90,6 @@ def docker_compose():
             subprocess.run(
                 ["docker", "compose", "up", "--build", "-d", "--wait"],
                 cwd=project_root,
-                capture_output=False,
                 text=True,
             ).check_returncode()
 
@@ -113,11 +112,10 @@ def docker_compose():
                     "all",
                 ],
                 cwd=project_root,
-                capture_output=True,
             )
             logger.info("Docker-compose stopped")
         if exception:
-            raise exception
+            pytest.exit(str(exception), returncode=1)
 
 
 @pytest.fixture

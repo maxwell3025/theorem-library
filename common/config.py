@@ -9,11 +9,10 @@ class PostgresConfig(BaseModel):
     database: str = "theorem_library"
 
 
-class DockerConfig(BaseModel):
+class VerificationConfig(BaseModel):
     """Docker container configuration."""
 
     verification_task_name: str = "verification-task"
-    project_name: str = "theorem-library"
 
 
 class ServiceConfig(BaseModel):
@@ -25,8 +24,9 @@ class ServiceConfig(BaseModel):
 class AppConfig(BaseModel):
     """Global application configuration."""
 
+    project_name: str = "theorem-library"
     postgres: PostgresConfig = PostgresConfig()
-    docker: DockerConfig = DockerConfig()
+    verification_config: VerificationConfig = VerificationConfig()
     services: ServiceConfig = ServiceConfig()
 
 
