@@ -20,7 +20,6 @@ app.add_middleware(common.middleware.CorrelationIdMiddleware)
 
 @app.get("/health", response_model=model.HealthCheckResponse)
 async def health_check(x_correlation_id: str = fastapi.Header()) -> fastapi.Response:
-    logger.info(f"[{x_correlation_id}] Received healthcheck request")
     # Currently, nothing can cause a service to report itself as unhealthy
     status: common.model.HealthCheckStatus = "healthy"
     status_code = 200 if status == "healthy" else 503
