@@ -14,42 +14,38 @@ import argparse
 import sys
 from pathlib import Path
 
-# Add the common module to the path
-sys.path.insert(0, str(Path(__file__).parent))
+from common.config import AppConfig
 
-from common.config import (
-    AppConfig,
-    PostgresConfig,
-    DockerConfig,
-    ServiceConfig,
-    BaseHealthCheckConfig,
-    PostgresHealthCheckConfig,
-    DependencyServiceHealthCheckConfig,
-    VerificationServiceHealthCheckConfig,
-    VerificationWorkerHealthCheckConfig,
-    RabbitMQHealthCheckConfig,
-    PdfServiceHealthCheckConfig,
-    LatexServiceHealthCheckConfig,
-)
-
-# Markers for the managed section
 MANAGED_SECTION_START = "# >>>>>> AUTO-GENERATED SECTION - DO NOT EDIT MANUALLY <<<<<<"
 MANAGED_SECTION_END = "# >>>>>> END AUTO-GENERATED SECTION <<<<<<"
 
 
-def generate_healthcheck_section(name: str, config: BaseHealthCheckConfig) -> list[str]:
-    """Generate healthcheck configuration lines for a service."""
-    prefix = name.upper().replace(" ", "_").replace("-", "_")
-    return [
-        "# ============================================",
-        f"# Healthcheck Configuration ({name})",
-        "# ============================================",
-        f"{prefix}_HEALTHCHECK_INTERVAL={config.interval}",
-        f"{prefix}_HEALTHCHECK_TIMEOUT={config.timeout}",
-        f"{prefix}_HEALTHCHECK_RETRIES={config.retries}",
-        f"{prefix}_HEALTHCHECK_START_PERIOD={config.start_period}",
-        "",
-    ]
+def path_to_env_var(path: list[str]) -> str:
+    """Convert a list of keys to an environment variable name."""
+    return "_".join(part.upper() for part in path)
+
+
+def get_env_entries(data, prefix: list[str] = []) -> list[str]:
+    """Recursively traverse dict structure and generate env var lines."""
+    env_lines = []
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            env_lines.extend(get_env_entries(value, prefix + [key]))
+        elif isinstance(value, list):
+            env_lines.extend(
+                get_env_entries(
+                    {
+                        list_index: list_entry
+                        for list_index, list_entry in enumerate(value)
+                    },
+                    prefix + [key],
+                )
+            )
+        else:
+            env_lines.append(f"{path_to_env_var(prefix + [key])}={value}")
+
+    return env_lines
 
 
 def generate_managed_section() -> str:
@@ -61,39 +57,13 @@ def generate_managed_section() -> str:
         "# This section is automatically managed by generate_env.py",
         "# Edit common/config.py to change defaults, then run: python generate_env.py",
         "",
-        "# ============================================",
-        "# PostgreSQL Configuration (non-sensitive)",
-        "# ============================================",
-        f"POSTGRES_HOST={config.postgres.host}",
-        f"POSTGRES_PORT={config.postgres.port}",
-        f"POSTGRES_DB={config.postgres.database}",
-        "",
-        "# ============================================",
-        "# Docker Configuration",
-        "# ============================================",
-        f"VERIFICATION_TASK_NAME={config.docker.verification_task_name}",
-        f"PROJECT_NAME={config.docker.project_name}",
-        "",
-        "# ============================================",
-        "# Service Configuration",
-        "# ============================================",
-        f"PDF_SERVICE_BASE={config.services.pdf_service_base}",
-        "",
     ]
 
-    # Add healthcheck configurations for all services
-    healthcheck_configs = [
-        ("PostgreSQL", config.postgres_healthcheck),
-        ("Dependency Service", config.dependency_service_healthcheck),
-        ("Verification Service", config.verification_service_healthcheck),
-        ("Verification Worker", config.verification_worker_healthcheck),
-        ("RabbitMQ", config.rabbitmq_healthcheck),
-        ("PDF Service", config.pdf_service_healthcheck),
-        ("LaTeX Service", config.latex_service_healthcheck),
-    ]
+    # Get the raw dict representation from pydantic
+    config_dict = config.model_dump()
 
-    for name, healthcheck_config in healthcheck_configs:
-        lines.extend(generate_healthcheck_section(name, healthcheck_config))
+    # Dump the entire config structure
+    lines.extend(get_env_entries(config_dict))
 
     # Remove trailing empty line and add end marker
     if lines and lines[-1] == "":
@@ -115,10 +85,8 @@ def update_env_file(existing_content: str) -> str:
     """
     managed_content = generate_managed_section()
 
-    # Parse existing content
     lines = existing_content.splitlines()
 
-    # Find the managed section markers
     start_idx = None
     end_idx = None
 
@@ -152,7 +120,7 @@ def main():
         default=".env",
         help="Output file path (default: .env)",
     )
-    
+
     parser.add_argument(
         "--input",
         "-i",
