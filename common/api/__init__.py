@@ -1,7 +1,7 @@
 import httpx
 import common.model as model
 import time
-
+from . import postgres
 
 def check_service_health(service_base: str, timeout: float = 5):
     # backup in case httpx method fails -- this still allows us to get a timestamp
