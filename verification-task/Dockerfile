@@ -9,4 +9,4 @@ COPY --from=common . ./common
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sleep", "100"]
+CMD ["sleep", "10"]
