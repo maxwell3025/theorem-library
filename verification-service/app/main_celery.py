@@ -1,4 +1,5 @@
 import logging
+import uuid
 from common.logging_config import configure_logging, configure_logging_celery
 import celery
 import celery.utils.log
@@ -13,6 +14,10 @@ configure_logging_celery(celery_app)
 
 logger = celery.utils.log.get_task_logger("verification-worker")
 
+verification_task_name = os.getenv(key="VERIFICATION_TASK_NAME", default="verification-task")
+
+project_name = os.getenv(key="PROJECT_NAME", default="theorem-library")
+
 @celery_app.task
 def process_verification_task(task_data: str) -> None:
     logger.info(f"Processing verification task with data: {task_data}")
@@ -20,19 +25,15 @@ def process_verification_task(task_data: str) -> None:
     # Connect to Docker
     client = docker.from_env()
 
-    # Get the verification task image tag from environment variable
-    verification_task_tag = os.getenv(
-        "VERIFICATION_TASK_TAG", "verification-task:latest"
-    )
-
     # Get the network name
-    network_name = "theorem-library_theorem-library"
+    network_name = f"{project_name}_theorem-library"
 
     try:
         # Run a new container instance of the verification-task
         container = client.containers.run(
-            image=verification_task_tag,
+            image=f"{project_name}-{verification_task_name}:latest",
             network=network_name,
+            name=f"{project_name}_verification_task_{uuid.uuid4()}",
             detach=True,
             remove=True,  # Auto-remove container when it exits
             environment={"TASK_DATA": task_data},

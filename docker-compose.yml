@@ -1,3 +1,5 @@
+name: ${PROJECT_NAME}
+
 services:
   postgres:
     image: postgres:18
@@ -98,7 +100,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
-      - VERIFICATION_TASK_TAG=${VERIFICATION_TASK_TAG}
+      - VERIFICATION_TASK_NAME=${VERIFICATION_TASK_NAME}
+      - PROJECT_NAME=${PROJECT_NAME}
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,14 +123,12 @@ services:
       context: ./verification-task
       additional_contexts:
         - common=./common
-      tags:
-        - ${VERIFICATION_TASK_TAG}
       dockerfile: Dockerfile
+    deploy:
+      replicas: 0
     container_name: verification-task
     networks:
       - theorem-library
-    profiles:
-      - dynamic
   rabbitmq:
     image: rabbitmq:4-management
     container_name: rabbitmq
