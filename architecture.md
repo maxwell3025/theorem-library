@@ -71,9 +71,6 @@ This service is responsible for managing Lean 4 test runs and queuing up those r
 This is a separate service because compiling and running Lean 4 packages is a slow task that should be able to scale independently.
 This will also asynchronously update the Lean status of each Git repo/commit pair in the database.
 
-#### Dependencies
-- This service depends on the database.
-
 ### PDF Server
 This service handles storing and serving PDF documents containing the human readable proofs.
 This is separate from the other services since large file transfers are a large workload that shouldn't interfere with (comparatively) quick tasks like querying the database.
