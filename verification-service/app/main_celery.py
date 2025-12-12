@@ -34,7 +34,6 @@ def process_verification_task(task_data: str) -> None:
             network=network_name,
             name=f"verification-task-{celery.current_task.request.id}",
             detach=True,
-            remove=True,  # Auto-remove container when it exits
             environment={"TASK_DATA": task_data},
         )
 
@@ -47,6 +46,9 @@ def process_verification_task(task_data: str) -> None:
         # Get the logs from the container
         logs = container.logs().decode("utf-8")
         logger.info(f"Verification task logs: {logs}")
+
+        container.remove()
+        logger.info(f"Removed verification task container: {container.id}")
 
     except docker.errors.ImageNotFound:
         logger.error(
