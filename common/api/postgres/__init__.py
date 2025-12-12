@@ -1,13 +1,17 @@
 import common.model
+import common.config
 import time
 import psycopg
 import os
 
+# Sensitive credentials from environment variables
 POSTGRES_USER = os.getenv("POSTGRES_USER", default="postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", default="")
-POSTGRES_DB = os.getenv("POSTGRES_DB", default="theorem_library")
-POSTGRES_HOST = os.getenv("POSTGRES_HOST", default="postgres")
-POSTGRES_PORT = os.getenv("POSTGRES_PORT", default="5432")
+
+# Non-sensitive config from typed configuration
+POSTGRES_DB = common.config.config.postgres.database
+POSTGRES_HOST = common.config.config.postgres.host
+POSTGRES_PORT = common.config.config.postgres.port
 
 
 def check_health() -> common.model.HealthCheckDependency:

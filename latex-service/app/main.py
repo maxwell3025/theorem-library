@@ -5,8 +5,8 @@ import common.model
 import common.api.postgres
 import common.middleware
 from common.logging_config import configure_logging, configure_logging_uvicorn
+from common.config import config
 import typing
-import os
 import uvicorn
 
 configure_logging()
@@ -17,7 +17,7 @@ app = fastapi.FastAPI()
 
 app.add_middleware(common.middleware.CorrelationIdMiddleware)
 
-PDF_SERVICE_BASE = os.getenv("PDF_SERVICE_BASE", default="http://pdf-service:8000")
+PDF_SERVICE_BASE = config.services.pdf_service_base
 
 
 @app.get("/health", response_model=model.HealthCheckResponse)

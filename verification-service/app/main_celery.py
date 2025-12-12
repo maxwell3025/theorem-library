@@ -1,10 +1,10 @@
 import logging
 import uuid
 from common.logging_config import configure_logging, configure_logging_celery
+from common.config import config
 import celery
 import celery.utils.log
 import docker
-import os
 
 configure_logging()
 
@@ -14,9 +14,9 @@ configure_logging_celery(celery_app)
 
 logger = celery.utils.log.get_task_logger("verification-worker")
 
-verification_task_name = os.getenv(key="VERIFICATION_TASK_NAME", default="verification-task")
+verification_task_name = config.docker.verification_task_name
 
-project_name = os.getenv(key="PROJECT_NAME", default="theorem-library")
+project_name = config.docker.project_name
 
 @celery_app.task
 def process_verification_task(task_data: str) -> None:
@@ -50,7 +50,7 @@ def process_verification_task(task_data: str) -> None:
         logger.info(f"Verification task logs: {logs}")
 
     except docker.errors.ImageNotFound:
-        logger.error(f"Docker image not found: {verification_task_tag}")
+        logger.error(f"Docker image not found: {project_name}-{verification_task_name}:latest")
         raise
     except docker.errors.APIError as e:
         logger.error(f"Docker API error: {e}")
