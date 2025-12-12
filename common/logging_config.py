@@ -4,7 +4,8 @@ import typing
 if typing.TYPE_CHECKING:
     import celery
 
-LOGGING_FORMAT = "[%(asctime)s][%(name)-20s][%(levelname)s] %(message)s"
+LOGGING_FORMAT = "[%(asctime)s.%(msecs)03d][%(name)-20s][%(levelname)s] %(message)s"
+LOGGING_FORMAT_CELERY = "[%(asctime)s][%(name)-20s][%(levelname)s] %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
@@ -44,8 +45,6 @@ def configure_logging_celery(celery_app: "celery.Celery") -> None:
 
     # Configure Celery to use our custom logging format
     celery_app.conf.update(
-        worker_log_format=LOGGING_FORMAT,
-        worker_task_log_format=LOGGING_FORMAT,
-        worker_log_datefmt=DATE_FORMAT,
-        worker_task_log_datefmt=DATE_FORMAT,
+        worker_log_format=LOGGING_FORMAT_CELERY,
+        worker_task_log_format=LOGGING_FORMAT_CELERY,
     )
