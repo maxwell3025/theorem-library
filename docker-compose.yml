@@ -21,10 +21,10 @@ services:
       -c log_timezone=UTC
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${POSTGRES_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${POSTGRES_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${POSTGRES_HEALTHCHECK_RETRIES:-5}
+      start_period: ${POSTGRES_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   dependency-service:
@@ -45,10 +45,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "httpx", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${DEPENDENCY_SERVICE_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${DEPENDENCY_SERVICE_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${DEPENDENCY_SERVICE_HEALTHCHECK_RETRIES:-5}
+      start_period: ${DEPENDENCY_SERVICE_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   verification-service:
@@ -72,10 +72,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "httpx", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${VERIFICATION_SERVICE_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${VERIFICATION_SERVICE_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${VERIFICATION_SERVICE_HEALTHCHECK_RETRIES:-5}
+      start_period: ${VERIFICATION_SERVICE_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   verification-worker:
@@ -99,10 +99,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "celery", "inspect", "ping", "--app", "tasks.add"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${VERIFICATION_WORKER_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${VERIFICATION_WORKER_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${VERIFICATION_WORKER_HEALTHCHECK_RETRIES:-5}
+      start_period: ${VERIFICATION_WORKER_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
     volumes:
@@ -129,10 +129,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 10s
+      interval: ${RABBITMQ_HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${RABBITMQ_HEALTHCHECK_TIMEOUT:-10s}
+      retries: ${RABBITMQ_HEALTHCHECK_RETRIES:-5}
+      start_period: ${RABBITMQ_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   pdf-service:
@@ -150,10 +150,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "httpx", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${PDF_SERVICE_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${PDF_SERVICE_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${PDF_SERVICE_HEALTHCHECK_RETRIES:-5}
+      start_period: ${PDF_SERVICE_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   latex-service:
@@ -176,10 +176,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "httpx", "http://localhost:8000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: ${LATEX_SERVICE_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${LATEX_SERVICE_HEALTHCHECK_TIMEOUT:-5s}
+      retries: ${LATEX_SERVICE_HEALTHCHECK_RETRIES:-5}
+      start_period: ${LATEX_SERVICE_HEALTHCHECK_START_PERIOD:-10s}
     networks:
       - theorem-library
   nginx:
