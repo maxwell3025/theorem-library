@@ -160,6 +160,23 @@ services:
     restart: unless-stopped
     volumes:
     - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+  verification-redis:
+    container_name: verification-redis
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      timeout: 1s
+    image: redis:7-alpine
+    networks:
+    - theorem-library
+    ports:
+    - 8009:6379
+    restart: unless-stopped
   verification-service:
     build:
       additional_contexts:
@@ -174,6 +191,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      verification-redis:
         condition: service_healthy
     environment:
     - POSTGRES_USER=${POSTGRES_USER}
@@ -229,6 +248,8 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      verification-redis:
         condition: service_healthy
     environment:
     - POSTGRES_USER=${POSTGRES_USER}

@@ -1,8 +1,10 @@
 from common.logging_config import configure_logging, configure_logging_celery
 from common.config import config
+import common.api.redis
 import celery
 import celery.utils.log
 import docker
+import model
 
 configure_logging()
 
@@ -18,46 +20,66 @@ project_name = config.project_name
 
 
 @celery_app.task
-def process_verification_task(task_data: str) -> None:
-    logger.info(f"Processing verification task with data: {task_data}")
+def process_verification_task(task_data_raw: str) -> None:
+    logger.info(f"Processing verification task with data: {task_data_raw}")
 
-    # Connect to Docker
-    client = docker.from_env()
+    # Validate task data with Pydantic
+    task_data = model.VerificationRequest.model_validate_json(task_data_raw)
+    redis_key = task_data.redis_key()
+    task_id = celery.current_task.request.id
+    if not task_id:
+        logger.error("No task ID found for the current Celery task.")
+        return
 
-    # Get the network name
-    network_name = f"{project_name}_theorem-library"
+    with common.api.redis.get_redis_client() as redis_client:
+        # Validate and store status with task_id
+        redis_data = model.RedisTaskData(status="running", task_id=task_id)
+        redis_client.set(redis_key, redis_data.model_dump_json())
+        redis_client.expire(redis_key, 86400)  # Expire after 24 hours
 
-    try:
-        # Run a new container instance of the verification-task
-        container = client.containers.run(
-            image=f"{project_name}-{verification_task_name}",
-            network=network_name,
-            name=f"verification-task-{celery.current_task.request.id}",
-            detach=True,
-            environment={"TASK_DATA": task_data},
-        )
+        client = docker.from_env()
 
-        logger.info(f"Started verification task container: {container.id}")
+        # Get the network name
+        network_name = f"{project_name}_theorem-library"
 
-        # Wait for the container to complete
-        result = container.wait()
-        logger.info(f"Verification task container completed with status: {result}")
+        exit_code = -1
+        container = None
+        try:
+            # Run a new container instance of the verification-task
+            container = client.containers.run(
+                image=f"{project_name}-{verification_task_name}",
+                network=network_name,
+                name=f"verification-task-{task_id}",
+                detach=True,
+                environment={
+                    "URL": task_data.repo_url,
+                    "COMMIT_HASH": task_data.commit_hash,
+                },
+            )
 
-        # Get the logs from the container
-        logs = container.logs().decode("utf-8")
-        logger.info(f"Verification task logs: {logs}")
+            logger.info(f"Started verification task container: {container.id}")
 
-        container.remove()
-        logger.info(f"Removed verification task container: {container.id}")
+            # Wait for the container to complete
+            result = container.wait()
+            exit_code = result.get("StatusCode", -1)
+            logger.info(
+                f"Verification task container completed with exit code: {exit_code}"
+            )
 
-    except docker.errors.ImageNotFound:
-        logger.error(
-            f"Docker image not found: {project_name}-{verification_task_name}:latest"
-        )
-        raise
-    except docker.errors.APIError as e:
-        logger.error(f"Docker API error: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Error running verification task: {e}")
-        raise
+            logs = container.logs().decode("utf-8")
+            logger.info(f"Verification task logs: {logs}")
+
+        except Exception as e:
+            exit_code = -1
+        finally:
+            try:
+                # Validate and store final status with task_id
+                final_status: model.TaskStatus = "success" if exit_code == 0 else "fail"
+                redis_data = model.RedisTaskData(status=final_status, task_id=task_id)
+                redis_client.set(redis_key, redis_data.model_dump_json())
+                redis_client.expire(redis_key, 86400)  # Expire after 24 hours
+            except Exception as e:
+                logger.error(f"Failed to update Redis status: {e}")
+            if container:
+                container.remove()
+                logger.info(f"Removed verification task container: {container.id}")

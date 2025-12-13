@@ -15,6 +15,13 @@ class VerificationConfig(BaseModel):
     verification_task_name: str = "verification-task"
 
 
+class RedisConfig(BaseModel):
+    """Redis configuration for verification service."""
+
+    host: str = "verification-redis"
+    port: int = 6379
+
+
 class ServiceConfig(BaseModel):
     """External service URLs and endpoints."""
 
@@ -27,6 +34,7 @@ class AppConfig(BaseModel):
     project_name: str = "theorem-library"
     postgres: PostgresConfig = PostgresConfig()
     verification_config: VerificationConfig = VerificationConfig()
+    redis: RedisConfig = RedisConfig()
     services: ServiceConfig = ServiceConfig()
 
 

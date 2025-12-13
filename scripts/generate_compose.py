@@ -59,7 +59,7 @@ def main():
         "#   python scripts/generate_compose.py\n"
         "\n"
     )
-    
+
     output_path.write_text(warning_comment + yaml.safe_dump(content))
 
     print(f"Successfully generated {output_path}")

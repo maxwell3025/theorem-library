@@ -6,7 +6,7 @@ from compose_pydantic import (  # type: ignore[import-untyped]
     Healthcheck,
     Condition,
 )
-from compose_pydantic.models import ListOfStrings
+from compose_pydantic.models import ListOfStrings  # type: ignore[import-untyped]
 
 from common.config import config
 
@@ -78,6 +78,14 @@ class DockerComposeConfig(ComposeSpecification):
                 test=["CMD", "pg_isready", "-U", "postgres"],
             ),
         ),
+        "verification-redis": ServiceWithDefaults(
+            image="redis:7-alpine",
+            container_name="verification-redis",
+            ports=["8009:6379"],
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "redis-cli", "ping"],
+            ),
+        ),
         "dependency-service": ServiceWithDefaults(
             build=BuildItemModernized(
                 context="./dependency-service",
@@ -106,6 +114,7 @@ class DockerComposeConfig(ComposeSpecification):
             depends_on={
                 "postgres": {"condition": Condition.service_healthy},
                 "rabbitmq": {"condition": Condition.service_healthy},
+                "verification-redis": {"condition": Condition.service_healthy},
             },
         ),
         "verification-worker": ServiceWithDefaults(
@@ -122,6 +131,7 @@ class DockerComposeConfig(ComposeSpecification):
             depends_on={
                 "postgres": {"condition": Condition.service_healthy},
                 "rabbitmq": {"condition": Condition.service_healthy},
+                "verification-redis": {"condition": Condition.service_healthy},
             },
             restart="unless-stopped",
             healthcheck=HealthcheckWithDefaults(
@@ -178,7 +188,7 @@ class DockerComposeConfig(ComposeSpecification):
                 "pdf-service": {"condition": Condition.service_healthy},
                 "latex-service": {"condition": Condition.service_healthy},
             },
-            healthcheck=None
+            healthcheck=None,
         ),
     }
     volumes: Optional[Dict[str, Optional[Dict]]] = {"pgdata": None}
