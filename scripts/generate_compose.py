@@ -14,6 +14,9 @@ import sys
 from pathlib import Path
 import yaml
 
+# Add parent directory to path to enable imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from common.compose import compose_specification
 from compose_pydantic import Condition  # type: ignore[import-untyped]
 

@@ -55,7 +55,6 @@ This project requires the following software to be present on the host:
 - Docker Compose
 - Python 3.11 (for development)
 - curl (for testing)
-- postgres (for testing)
 - jq (for testing)
 
 ## Installation & Setup
@@ -83,11 +82,8 @@ verification-service
 
 Next, populate `.env`
 ```bash
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD="<insert password>"
-POSTGRES_DB=theorem_library
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
+NEO4J_USER=neo4j
+NEO4J_PASSWORD="<insert password>"
 ```
 Next, to run the system, run the following command:
 ```bash
@@ -102,11 +98,21 @@ docker compose down
 
 ## Usage Instructions
 Currently, the only way to use the system is by running healthchecks.
-### Postgres
+### Neo4j Browser
+Access the Neo4j Browser dashboard at:
+```
+http://localhost:8000
+```
+Login with the credentials from your `.env` file (NEO4J_USER and NEO4J_PASSWORD).
+
+### Neo4j Health Check
 ```bash
-pg_isready -h localhost -p 8000
-# Example response:
-# localhost:8000 - accepting connections
+curl -X GET localhost:8001/health | jq '.dependencies.neo4j'
+# Example response (from dependency service which checks Neo4j):
+# {
+#   "status": "healthy",
+#   "response_time_ms": 5
+# }
 ```
 
 ### Dependency Service
@@ -117,7 +123,7 @@ curl -X GET localhost:8001/health | jq
 #   "status": "healthy",
 #   "service": "dependency-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -133,7 +139,7 @@ curl -X GET localhost:8002/health | jq
 #   "status": "healthy",
 #   "service": "verification-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -160,7 +166,7 @@ curl -X GET localhost:8004/health | jq
 #   "status": "healthy",
 #   "service": "latex-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     },
@@ -187,7 +193,7 @@ Will have a body with shape
   "service": "dependency-service",
   "status": "healthy|unhealthy",
   "dependencies": {
-    "postgres": {
+    "neo4j": {
       "status": "healthy|unhealthy|timeout",
       "response_time_ms?": "int"
     }
@@ -209,7 +215,7 @@ curl -X GET localhost:8001/health | jq
 #   "status": "healthy",
 #   "service": "dependency-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -230,7 +236,7 @@ Will have a body with shape
   "service": "verification-service",
   "status": "healthy|unhealthy",
   "dependencies": {
-    "postgres": {
+    "neo4j": {
       "status": "healthy|unhealthy|timeout",
       "response_time_ms?": "int"
     }
@@ -251,7 +257,7 @@ curl -X GET localhost:8002/health | jq
 #   "status": "healthy",
 #   "service": "verification-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -302,7 +308,7 @@ Will have a body with shape
   "service": "dependency-service",
   "status": "healthy|unhealthy",
   "dependencies": {
-    "postgres": {
+    "neo4j": {
       "status": "healthy|unhealthy|timeout",
       "response_time_ms?": "int"
     },
@@ -327,7 +333,7 @@ curl -X GET localhost:8004/health | jq
 #   "status": "healthy",
 #   "service": "latex-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     },
@@ -356,7 +362,7 @@ curl -X GET localhost:8001/health | jq
 #   "status": "healthy",
 #   "service": "dependency-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -372,7 +378,7 @@ curl -X GET localhost:8002/health | jq
 #   "status": "healthy",
 #   "service": "verification-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     }
@@ -399,7 +405,7 @@ curl -X GET localhost:8004/health | jq
 #   "status": "healthy",
 #   "service": "latex-service",
 #   "dependencies": {
-#     "postgres": {
+#     "neo4j": {
 #       "status": "healthy",
 #       "response_time_ms": 4
 #     },

@@ -1,7 +1,7 @@
 import httpx
 import common.model as model
 import time
-from . import postgres
+from . import neo4j
 
 
 def check_service_health(service_base: str, timeout: float = 5):

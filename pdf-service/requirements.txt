@@ -4,4 +4,4 @@ pydantic==2.5.0
 httpx==0.25.2
 httpx[cli]==0.25.2
 python-dotenv==1.0.0
-psycopg[binary]==3.2.12
+neo4j==5.15.0

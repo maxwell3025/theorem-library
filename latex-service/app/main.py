@@ -2,7 +2,7 @@ import fastapi
 import logging
 import model
 import common.model
-import common.api.postgres
+import common.api
 import common.middleware
 from common.logging_config import configure_logging, configure_logging_uvicorn
 from common.config import config

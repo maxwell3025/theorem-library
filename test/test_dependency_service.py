@@ -14,4 +14,3 @@ def test_health_check(http_client: httpx.Client, dependency_service_url: str):
     assert "X-Correlation-ID" in response.headers
     data = response.json()
     assert data["status"] == "healthy"
-

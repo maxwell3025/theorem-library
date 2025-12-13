@@ -2,7 +2,7 @@ import fastapi
 import logging
 import model
 import common.model
-import common.api.postgres
+import common.api.neo4j
 import common.middleware
 from common.logging_config import configure_logging, configure_logging_uvicorn
 import typing
@@ -24,7 +24,7 @@ async def health_check() -> fastapi.Response:
     status_code = 200 if status == "healthy" else 503
     # Use methods defined in /common to run health checks
     dependencies: typing.Dict[str, common.model.HealthCheckDependency] = {
-        "postgres": common.api.postgres.check_health()
+        "neo4j": common.api.neo4j.check_health()
     }
 
     response_content = model.HealthCheckResponse(

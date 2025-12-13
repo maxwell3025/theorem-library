@@ -15,11 +15,11 @@ services:
       dockerfile: Dockerfile
     container_name: dependency-service
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
     environment:
-    - POSTGRES_USER=${POSTGRES_USER}
-    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - NEO4J_USER=${NEO4J_USER}
+    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -42,13 +42,13 @@ services:
       dockerfile: Dockerfile
     container_name: latex-service
     depends_on:
+      neo4j:
+        condition: service_healthy
       pdf-service:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
     environment:
-    - POSTGRES_USER=${POSTGRES_USER}
-    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - NEO4J_USER=${NEO4J_USER}
+    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -63,6 +63,35 @@ services:
     ports:
     - 8004:8000
     restart: unless-stopped
+  neo4j:
+    container_name: neo4j
+    environment:
+    - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
+    - NEO4J_server_memory_heap_initial__size=512m
+    - NEO4J_server_memory_heap_max__size=2G
+    healthcheck:
+      interval: 5s
+      retries: 5.0
+      start_period: 1s
+      test:
+      - CMD
+      - cypher-shell
+      - -u
+      - neo4j
+      - -p
+      - ${NEO4J_PASSWORD}
+      - RETURN 1
+      timeout: 3s
+    image: neo4j:5
+    networks:
+    - theorem-library
+    ports:
+    - 8000:7474
+    - 8010:7687
+    restart: unless-stopped
+    volumes:
+    - neo4j_data:/data
+    - neo4j_logs:/logs
   nginx:
     depends_on:
       dependency-service:
@@ -89,7 +118,7 @@ services:
       dockerfile: Dockerfile
     container_name: pdf-service
     depends_on:
-      postgres:
+      neo4j:
         condition: service_healthy
     healthcheck:
       interval: 1s
@@ -105,40 +134,6 @@ services:
     ports:
     - 8003:8000
     restart: unless-stopped
-  postgres:
-    command:
-    - postgres
-    - -c
-    - log_destination=stderr
-    - -c
-    - logging_collector=off
-    - -c
-    - log_line_prefix='[%m][postgres            ][%e]'
-    - -c
-    - log_timezone=UTC
-    container_name: postgres
-    environment:
-    - POSTGRES_USER=${POSTGRES_USER}
-    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    - POSTGRES_DB=theorem_library
-    healthcheck:
-      interval: 1s
-      retries: 10
-      start_period: 1s
-      test:
-      - CMD
-      - pg_isready
-      - -U
-      - postgres
-      timeout: 1s
-    image: postgres:18
-    networks:
-    - theorem-library
-    ports:
-    - 8000:${POSTGRES_PORT}
-    restart: unless-stopped
-    volumes:
-    - pgdata:/var/lib/postgresql
   rabbitmq:
     container_name: rabbitmq
     healthcheck:
@@ -193,8 +188,8 @@ services:
       verification-redis:
         condition: service_healthy
     environment:
-    - POSTGRES_USER=${POSTGRES_USER}
-    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - NEO4J_USER=${NEO4J_USER}
+    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -248,8 +243,8 @@ services:
       verification-redis:
         condition: service_healthy
     environment:
-    - POSTGRES_USER=${POSTGRES_USER}
-    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - NEO4J_USER=${NEO4J_USER}
+    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -270,4 +265,5 @@ services:
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
 volumes:
-  pgdata: null
+  neo4j_data: null
+  neo4j_logs: null

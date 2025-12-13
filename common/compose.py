@@ -53,29 +53,32 @@ class DockerComposeConfig(ComposeSpecification):
 
     name: str = config.project_name
     services: Dict[str, ServiceModernized] = {
-        "postgres": ServiceWithDefaults(
-            image="postgres:18",
-            container_name="postgres",
-            volumes=["pgdata:/var/lib/postgresql"],
-            ports=["8000:${POSTGRES_PORT}"],
+        "neo4j": ServiceWithDefaults(
+            image="neo4j:5",
+            container_name="neo4j",
+            volumes=["neo4j_data:/data", "neo4j_logs:/logs"],
+            ports=[
+                "8000:7474",
+                "8010:7687",
+            ],  # 7474 for browser dashboard, 7687 for bolt protocol
             environment=[
-                "POSTGRES_USER=${POSTGRES_USER}",
-                "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
-                f"POSTGRES_DB={config.postgres.database}",
-            ],
-            command=[
-                "postgres",
-                "-c",
-                "log_destination=stderr",
-                "-c",
-                "logging_collector=off",
-                "-c",
-                "log_line_prefix='[%m][postgres            ][%e]'",
-                "-c",
-                "log_timezone=UTC",
+                "NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}",
+                "NEO4J_server_memory_heap_initial__size=512m",
+                "NEO4J_server_memory_heap_max__size=2G",
             ],
             healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "pg_isready", "-U", "postgres"],
+                test=[
+                    "CMD",
+                    "cypher-shell",
+                    "-u",
+                    "neo4j",
+                    "-p",
+                    "${NEO4J_PASSWORD}",
+                    "RETURN 1",
+                ],
+                interval="5s",
+                timeout="3s",
+                retries=5,
             ),
         ),
         "verification-redis": ServiceWithDefaults(
@@ -95,10 +98,10 @@ class DockerComposeConfig(ComposeSpecification):
             container_name="dependency-service",
             ports=["8001:8000"],
             environment=[
-                "POSTGRES_USER=${POSTGRES_USER}",
-                "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
+                "NEO4J_USER=${NEO4J_USER}",
+                "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
             ],
-            depends_on={"postgres": {"condition": Condition.service_healthy}},
+            depends_on={"neo4j": {"condition": Condition.service_healthy}},
         ),
         "verification-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(
@@ -107,10 +110,6 @@ class DockerComposeConfig(ComposeSpecification):
             command=["python", "main_fastapi.py"],
             container_name="verification-service",
             ports=["8002:8000"],
-            environment=[
-                "POSTGRES_USER=${POSTGRES_USER}",
-                "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
-            ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
@@ -123,10 +122,6 @@ class DockerComposeConfig(ComposeSpecification):
             command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
             container_name="verification-worker",
             ports=["8008:8000"],
-            environment=[
-                "POSTGRES_USER=${POSTGRES_USER}",
-                "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
-            ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
@@ -159,7 +154,7 @@ class DockerComposeConfig(ComposeSpecification):
             ),
             container_name="pdf-service",
             ports=["8003:8000"],
-            depends_on={"postgres": {"condition": Condition.service_healthy}},
+            depends_on={"neo4j": {"condition": Condition.service_healthy}},
         ),
         "latex-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(
@@ -167,12 +162,8 @@ class DockerComposeConfig(ComposeSpecification):
             ),
             container_name="latex-service",
             ports=["8004:8000"],
-            environment=[
-                "POSTGRES_USER=${POSTGRES_USER}",
-                "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
-            ],
             depends_on={
-                "postgres": {"condition": Condition.service_healthy},
+                "neo4j": {"condition": Condition.service_healthy},
                 "pdf-service": {"condition": Condition.service_healthy},
             },
         ),
@@ -189,7 +180,10 @@ class DockerComposeConfig(ComposeSpecification):
             healthcheck=None,
         ),
     }
-    volumes: Optional[Dict[str, Optional[Dict]]] = {"pgdata": None}
+    volumes: Optional[Dict[str, Optional[Dict]]] = {
+        "neo4j_data": None,
+        "neo4j_logs": None,
+    }
     networks: Optional[Dict[str, Optional[Dict]]] = {"theorem-library": None}
 
 

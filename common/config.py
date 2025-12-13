@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 
 
-class PostgresConfig(BaseModel):
-    """PostgreSQL database configuration (non-sensitive)."""
+class Neo4jConfig(BaseModel):
+    """Neo4j database configuration (non-sensitive)."""
 
-    host: str = "postgres"
-    port: str = "5432"
-    database: str = "theorem_library"
+    host: str = "neo4j"
+    bolt_port: str = "7687"
+    http_port: str = "7474"
+    database: str = "neo4j"
 
 
 class VerificationConfig(BaseModel):
@@ -32,7 +33,7 @@ class AppConfig(BaseModel):
     """Global application configuration."""
 
     project_name: str = "theorem-library"
-    postgres: PostgresConfig = PostgresConfig()
+    neo4j: Neo4jConfig = Neo4jConfig()
     verification_config: VerificationConfig = VerificationConfig()
     redis: RedisConfig = RedisConfig()
     services: ServiceConfig = ServiceConfig()
