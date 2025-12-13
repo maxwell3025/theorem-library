@@ -188,8 +188,6 @@ services:
     - main_fastapi.py
     container_name: verification-service
     depends_on:
-      postgres:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       verification-redis:
@@ -245,8 +243,6 @@ services:
     - --loglevel=info
     container_name: verification-worker
     depends_on:
-      postgres:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
       verification-redis:

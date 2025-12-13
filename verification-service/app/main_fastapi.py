@@ -28,7 +28,6 @@ async def health_check(x_correlation_id: str = fastapi.Header()) -> fastapi.Resp
     status_code = 200 if status == "healthy" else 503
     # Use methods defined in /common to run health checks
     dependencies: typing.Dict[str, common.model.HealthCheckDependency] = {
-        "postgres": common.api.postgres.check_health(),
         "redis": common.api.redis.check_health(),
     }
 

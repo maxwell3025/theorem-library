@@ -112,7 +112,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
             ],
             depends_on={
-                "postgres": {"condition": Condition.service_healthy},
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
             },
@@ -129,7 +128,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}",
             ],
             depends_on={
-                "postgres": {"condition": Condition.service_healthy},
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
             },
