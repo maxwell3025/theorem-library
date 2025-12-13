@@ -58,7 +58,7 @@ class DockerComposeConfig(ComposeSpecification):
             container_name="neo4j",
             volumes=["neo4j_data:/data", "neo4j_logs:/logs"],
             ports=[
-                "8000:7474",
+                "8011:7474",
                 "8010:7687",
             ],  # 7474 for browser dashboard, 7687 for bolt protocol
             environment=[

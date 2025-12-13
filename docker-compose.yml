@@ -46,9 +46,6 @@ services:
         condition: service_healthy
       pdf-service:
         condition: service_healthy
-    environment:
-    - NEO4J_USER=${NEO4J_USER}
-    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -86,7 +83,7 @@ services:
     networks:
     - theorem-library
     ports:
-    - 8000:7474
+    - 8011:7474
     - 8010:7687
     restart: unless-stopped
     volumes:
@@ -187,9 +184,6 @@ services:
         condition: service_healthy
       verification-redis:
         condition: service_healthy
-    environment:
-    - NEO4J_USER=${NEO4J_USER}
-    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
@@ -242,9 +236,6 @@ services:
         condition: service_healthy
       verification-redis:
         condition: service_healthy
-    environment:
-    - NEO4J_USER=${NEO4J_USER}
-    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
