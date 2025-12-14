@@ -265,3 +265,161 @@ def test_verify_dependency_chain(http_client: httpx.Client, dependency_service_u
         assert dependencies[0]["dependency_repo"] == base_math["url"]
         assert dependencies[0]["dependency_commit"] == base_math["commit"]
 
+
+def test_dependency_queue_completion_and_storage(
+    http_client: httpx.Client,
+    dependency_service_url: str,
+    git_repositories: dict
+):
+    """Test that dependency task completes and results are stored and accessible via REST API."""
+    base_math = git_repositories["base-math"]
+    
+    # Submit task to add project
+    response = http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={
+            "repo_url": base_math["url"],
+            "commit": base_math["commit"]
+        }
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    data = response.json()
+    task_id = data["task_id"]
+    logger.info(f"Task queued with ID: {task_id}")
+    
+    # Wait for task to complete (with timeout)
+    max_wait_time = 120  # 2 minutes
+    poll_interval = 2
+    elapsed_time = 0
+    task_completed = False
+    
+    while elapsed_time < max_wait_time:
+        # Check if project is listed (indicates task completed)
+        projects_response = http_client.get(url=f"{dependency_service_url}/projects")
+        if projects_response.status_code == 200:
+            projects = projects_response.json()
+            project_exists = any(
+                p["repo_url"] == base_math["url"] and p["commit"] == base_math["commit"]
+                for p in projects
+            )
+            if project_exists:
+                task_completed = True
+                logger.info(f"Task completed after {elapsed_time} seconds")
+                break
+        
+        time.sleep(poll_interval)
+        elapsed_time += poll_interval
+    
+    assert task_completed, f"Task did not complete within {max_wait_time} seconds"
+    
+    # Verify project is accessible via REST API
+    projects_response = http_client.get(url=f"{dependency_service_url}/projects")
+    pretty_print_response(projects_response, logger)
+    assert projects_response.status_code == 200
+    projects = projects_response.json()
+    
+    # Find our project in the list
+    project_found = None
+    for p in projects:
+        if p["repo_url"] == base_math["url"] and p["commit"] == base_math["commit"]:
+            project_found = p
+            break
+    
+    assert project_found is not None, "Project not found in projects list"
+    assert project_found["repo_url"] == base_math["url"]
+    assert project_found["commit"] == base_math["commit"]
+    logger.info(f"Verified project via REST API: {project_found}")
+    
+    # Verify dependencies endpoint works
+    deps_response = http_client.get(
+        url=f"{dependency_service_url}/projects/{base_math['url']}/{base_math['commit']}/dependencies"
+    )
+    pretty_print_response(deps_response, logger)
+    assert deps_response.status_code == 200
+    dependencies = deps_response.json()
+    assert isinstance(dependencies, list)
+    logger.info(f"Project has {len(dependencies)} dependencies")
+
+
+def test_dependency_with_dependencies_stored_correctly(
+    http_client: httpx.Client,
+    dependency_service_url: str,
+    git_repositories: dict
+):
+    """Test that project dependencies are correctly stored and accessible via REST API."""
+    algebra_theorems = git_repositories["algebra-theorems"]
+    base_math = git_repositories["base-math"]
+    
+    # Ensure base-math is added first
+    http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={"repo_url": base_math["url"], "commit": base_math["commit"]}
+    )
+    time.sleep(5)
+    
+    # Add algebra-theorems (depends on base-math)
+    response = http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={
+            "repo_url": algebra_theorems["url"],
+            "commit": algebra_theorems["commit"]
+        }
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    task_id = response.json()["task_id"]
+    logger.info(f"Task queued with ID: {task_id}")
+    
+    # Wait for task to complete
+    max_wait_time = 120
+    poll_interval = 2
+    elapsed_time = 0
+    task_completed = False
+    
+    while elapsed_time < max_wait_time:
+        projects_response = http_client.get(url=f"{dependency_service_url}/projects")
+        if projects_response.status_code == 200:
+            projects = projects_response.json()
+            project_exists = any(
+                p["repo_url"] == algebra_theorems["url"] and p["commit"] == algebra_theorems["commit"]
+                for p in projects
+            )
+            if project_exists:
+                task_completed = True
+                logger.info(f"Task completed after {elapsed_time} seconds")
+                break
+        
+        time.sleep(poll_interval)
+        elapsed_time += poll_interval
+    
+    assert task_completed, f"Task did not complete within {max_wait_time} seconds"
+    
+    # Verify via REST API that dependencies are returned correctly
+    deps_response = http_client.get(
+        url=f"{dependency_service_url}/projects/{algebra_theorems['url']}/{algebra_theorems['commit']}/dependencies"
+    )
+    pretty_print_response(deps_response, logger)
+    assert deps_response.status_code == 200
+    dependencies = deps_response.json()
+    assert len(dependencies) >= 1, "Expected at least one dependency"
+    
+    # Verify the dependency relationship
+    dep_repos = [dep["dependency_repo"] for dep in dependencies]
+    assert base_math["url"] in dep_repos, f"Expected {base_math['url']} in dependencies"
+    
+    # Find the specific dependency and verify all fields
+    base_math_dep = None
+    for dep in dependencies:
+        if dep["dependency_repo"] == base_math["url"]:
+            base_math_dep = dep
+            break
+    
+    assert base_math_dep is not None, "base-math dependency not found"
+    assert base_math_dep["source_repo"] == algebra_theorems["url"]
+    assert base_math_dep["source_commit"] == algebra_theorems["commit"]
+    assert base_math_dep["dependency_repo"] == base_math["url"]
+    assert base_math_dep["dependency_commit"] == base_math["commit"]
+    logger.info(f"Verified dependency relationship via REST API: {base_math_dep}")
+
+

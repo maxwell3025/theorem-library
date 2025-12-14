@@ -11,7 +11,8 @@ import httpx
 import os
 import logging
 import sys
-from typing import Generator
+import time
+from typing import Generator, Optional, Literal, Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -176,3 +177,38 @@ def git_repositories(http_client: httpx.Client, git_server_url: str) -> dict:
     data = response.json()
     repositories = {repo["name"]: repo for repo in data["repositories"]}
     return repositories
+
+
+def wait_for_celery_task_by_status_endpoint(
+    http_client: httpx.Client,
+    status_url: str,
+    request_data: dict[str, Any],
+    timeout: float = 60.0,
+    poll_interval: float = 0.5,
+) -> Optional[dict[str, Any]]:
+    """
+    Poll a service's status endpoint for task completion.
+    
+    Args:
+        http_client: HTTP client for making requests
+        status_url: The status endpoint URL
+        request_data: Request data to send (typically repo_url and commit_hash)
+        timeout: Maximum time to wait in seconds
+        poll_interval: Time between polls in seconds
+    
+    Returns:
+        Status response dict if completed, None if timeout
+    """
+    start_time = time.time()
+    
+    while (time.time() - start_time) < timeout:
+        response = http_client.post(status_url, json=request_data)
+        if response.status_code == 200:
+            data = response.json()
+            status = data.get("status")
+            if status in ["success", "fail"]:
+                return data
+        time.sleep(poll_interval)
+    
+    return None
+

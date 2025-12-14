@@ -3,6 +3,7 @@ import httpx
 import time
 import logging
 from formatutils import pretty_print_response
+from conftest import wait_for_celery_task_by_status_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -188,4 +189,140 @@ def test_redis_key_uniqueness(http_client: httpx.Client, latex_service_url: str)
 
     # Task IDs should be different
     assert status1_data["task_id"] != status2_data["task_id"]
+
+
+def test_latex_queue_completion_with_status_endpoint(
+    http_client: httpx.Client,
+    latex_service_url: str,
+    git_repositories: dict
+):
+    """Test that LaTeX task completes and results are accessible via status endpoint."""
+    base_math = git_repositories["base-math"]
+    
+    # Submit LaTeX compilation task
+    request_data = {
+        "repo_url": base_math["url"],
+        "commit_hash": base_math["commit"]
+    }
+    response = http_client.post(f"{latex_service_url}/run", json=request_data)
+    pretty_print_response(response, logger)
+    assert response.status_code == 202
+    data = response.json()
+    assert data["status"] == "queued"
+    logger.info(f"LaTeX task queued for {base_math['url']}@{base_math['commit']}")
+    
+    # Wait for task completion via status endpoint
+    task_data = wait_for_celery_task_by_status_endpoint(
+        http_client=http_client,
+        status_url=f"{latex_service_url}/status",
+        request_data=request_data,
+        timeout=180.0,  # 3 minutes for LaTeX compilation
+        poll_interval=2.0
+    )
+    
+    assert task_data is not None, "LaTeX task did not complete within timeout"
+    assert "status" in task_data
+    assert "task_id" in task_data
+    assert task_data["status"] in ["success", "fail"]
+    assert task_data["repo_url"] == base_math["url"]
+    assert task_data["commit_hash"] == base_math["commit"]
+    logger.info(f"Task completed with status: {task_data['status']}, task_id: {task_data['task_id']}")
+    
+    # Verify we can query status again and get the same result
+    status_response = http_client.post(
+        url=f"{latex_service_url}/status",
+        json=request_data
+    )
+    pretty_print_response(status_response, logger)
+    assert status_response.status_code == 200
+    status_data = status_response.json()
+    assert status_data["status"] == task_data["status"]
+    assert status_data["task_id"] == task_data["task_id"]
+    logger.info(f"Verified task status persisted and accessible via REST API")
+
+
+def test_latex_queue_completion_via_status_endpoint(
+    http_client: httpx.Client,
+    latex_service_url: str,
+    git_repositories: dict
+):
+    """Test waiting for LaTeX task completion using status endpoint polling."""
+    algebra_theorems = git_repositories["algebra-theorems"]
+    
+    # Submit LaTeX compilation task
+    request_data = {
+        "repo_url": algebra_theorems["url"],
+        "commit_hash": algebra_theorems["commit"]
+    }
+    response = http_client.post(f"{latex_service_url}/run", json=request_data)
+    pretty_print_response(response, logger)
+    assert response.status_code == 202
+    logger.info(f"LaTeX task queued for {algebra_theorems['url']}@{algebra_theorems['commit']}")
+    
+    # Wait for completion using status endpoint
+    status_data = wait_for_celery_task_by_status_endpoint(
+        http_client=http_client,
+        status_url=f"{latex_service_url}/status",
+        request_data=request_data,
+        timeout=180.0,
+        poll_interval=2.0
+    )
+    
+    assert status_data is not None, "LaTeX task did not complete within timeout"
+    assert status_data["status"] in ["success", "fail"]
+    assert status_data["task_id"] is not None
+    assert status_data["repo_url"] == algebra_theorems["url"]
+    assert status_data["commit_hash"] == algebra_theorems["commit"]
+    logger.info(f"Task completed with status: {status_data['status']}, task_id: {status_data['task_id']}")
+
+
+def test_latex_multiple_tasks_complete_independently(
+    http_client: httpx.Client,
+    latex_service_url: str,
+    git_repositories: dict
+):
+    """Test that multiple LaTeX tasks complete independently with unique task IDs."""
+    base_math = git_repositories["base-math"]
+    algebra_theorems = git_repositories["algebra-theorems"]
+    
+    # Submit two tasks
+    tasks = [
+        {"repo_url": base_math["url"], "commit_hash": base_math["commit"]},
+        {"repo_url": algebra_theorems["url"], "commit_hash": algebra_theorems["commit"]}
+    ]
+    
+    for task in tasks:
+        response = http_client.post(f"{latex_service_url}/run", json=task)
+        pretty_print_response(response, logger)
+        assert response.status_code == 202
+        logger.info(f"Queued task for {task['repo_url']}@{task['commit_hash']}")
+    
+    # Wait for both to complete
+    completed_tasks = []
+    for i, task in enumerate(tasks):
+        task_data = wait_for_celery_task_by_status_endpoint(
+            http_client=http_client,
+            status_url=f"{latex_service_url}/status",
+            request_data=task,
+            timeout=180.0,
+            poll_interval=2.0
+        )
+        assert task_data is not None, f"Task {i} did not complete within timeout"
+        completed_tasks.append(task_data)
+        logger.info(f"Task {i} completed with status: {task_data['status']}")
+    
+    # Verify both have different task IDs
+    assert completed_tasks[0]["task_id"] != completed_tasks[1]["task_id"]
+    
+    # Verify both are accessible independently via status endpoint
+    for i, task in enumerate(tasks):
+        status_response = http_client.post(
+            url=f"{latex_service_url}/status",
+            json=task
+        )
+        assert status_response.status_code == 200
+        status_data = status_response.json()
+        assert status_data["task_id"] == completed_tasks[i]["task_id"]
+        logger.info(f"Verified task {i} accessible independently via REST API")
+
 

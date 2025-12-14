@@ -2,6 +2,7 @@ import pytest
 import httpx
 import logging
 from formatutils import pretty_print_response
+from conftest import wait_for_celery_task_by_status_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -111,3 +112,39 @@ def test_run_verification_missing_fields(
     )
     pretty_print_response(response, logger)
     assert response.status_code == 422
+
+
+def test_verification_queue_completion_via_status_endpoint(
+    http_client: httpx.Client,
+    verification_service_url: str,
+    git_repositories: dict
+):
+    """Test waiting for verification task completion using status endpoint polling."""
+    algebra_theorems = git_repositories["algebra-theorems"]
+    
+    # Submit verification task
+    request_data = {
+        "repo_url": algebra_theorems["url"],
+        "commit_hash": algebra_theorems["commit"]
+    }
+    response = http_client.post(f"{verification_service_url}/run", json=request_data)
+    pretty_print_response(response, logger)
+    assert response.status_code == 202
+    logger.info(f"Verification task queued for {algebra_theorems['url']}@{algebra_theorems['commit']}")
+    
+    # Wait for completion using status endpoint
+    status_data = wait_for_celery_task_by_status_endpoint(
+        http_client=http_client,
+        status_url=f"{verification_service_url}/status",
+        request_data=request_data,
+        timeout=180.0,
+        poll_interval=2.0
+    )
+    
+    assert status_data is not None, "Verification task did not complete within timeout"
+    assert status_data["status"] in ["success", "fail"]
+    assert status_data["task_id"] is not None
+    assert status_data["repo_url"] == algebra_theorems["url"]
+    assert status_data["commit_hash"] == algebra_theorems["commit"]
+    logger.info(f"Task completed with status: {status_data['status']}, task_id: {status_data['task_id']}")
+
