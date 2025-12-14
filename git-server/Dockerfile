@@ -43,8 +43,32 @@ RUN cd /git-repos && \
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Create script to generate repository JSON with commits
+RUN echo '#!/bin/sh' > /generate_repos.sh && \
+    echo 'cd /git-repos' >> /generate_repos.sh && \
+    echo 'count=0' >> /generate_repos.sh && \
+    echo 'echo "{\"repositories\":[" > /tmp/repos.json' >> /generate_repos.sh && \
+    echo 'first=true' >> /generate_repos.sh && \
+    echo 'for repo in */; do' >> /generate_repos.sh && \
+    echo '  repo_name=$(basename "$repo")' >> /generate_repos.sh && \
+    echo '  if [ -d "$repo/.git" ]; then' >> /generate_repos.sh && \
+    echo '    commit=$(cd "$repo" && git rev-parse HEAD)' >> /generate_repos.sh && \
+    echo '    count=$((count + 1))' >> /generate_repos.sh && \
+    echo '    if [ "$first" = true ]; then' >> /generate_repos.sh && \
+    echo '      first=false' >> /generate_repos.sh && \
+    echo '    else' >> /generate_repos.sh && \
+    echo '      echo "," >> /tmp/repos.json' >> /generate_repos.sh && \
+    echo '    fi' >> /generate_repos.sh && \
+    echo '    echo "{\"name\":\"$repo_name\",\"url\":\"http://git-server:8000/$repo_name\",\"commit\":\"$commit\"}" >> /tmp/repos.json' >> /generate_repos.sh && \
+    echo '  fi' >> /generate_repos.sh && \
+    echo 'done' >> /generate_repos.sh && \
+    echo 'echo "]}" >> /tmp/repos.json' >> /generate_repos.sh && \
+    echo 'echo "{\"status\":\"healthy\",\"repositories\":$count}" > /tmp/health.json' >> /generate_repos.sh && \
+    chmod +x /generate_repos.sh
+
 # Create startup script
 RUN echo '#!/bin/sh' > /start.sh && \
+    echo '/generate_repos.sh' >> /start.sh && \
     echo 'spawn-fcgi -s /var/run/fcgiwrap.socket -M 666 /usr/bin/fcgiwrap' >> /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh

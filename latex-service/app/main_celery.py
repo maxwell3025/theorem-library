@@ -19,7 +19,7 @@ latex_task_name = config.latex_config.latex_task_name
 project_name = config.project_name
 
 
-@celery_app.task
+@celery_app.task(queue='latex')
 def process_latex_task(task_data_raw: str) -> None:
     logger.info(f"Processing LaTeX task with data: {task_data_raw}")
 

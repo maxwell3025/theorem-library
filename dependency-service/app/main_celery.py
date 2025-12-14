@@ -106,7 +106,7 @@ def parse_dependencies_from_repo(repo_path: Path, repo_url: str, commit: str) ->
     }
 
 
-@celery_app.task
+@celery_app.task(queue='dependency')
 def clone_and_index_repository(repo_url: str, commit: str) -> dict:
     """Clone a repository at a specific commit and index its dependencies in Neo4j."""
     task_id = celery.current_task.request.id

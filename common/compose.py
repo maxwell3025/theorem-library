@@ -107,7 +107,7 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./dependency-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
+            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "dependency"],
             container_name="dependency-worker",
             ports=["8012:8000"],
             environment=[
@@ -140,7 +140,7 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./verification-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
+            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "verification"],
             container_name="verification-worker",
             ports=["8008:8000"],
             depends_on={
@@ -193,7 +193,7 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./latex-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
+            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "latex"],
             container_name="latex-worker",
             ports=["8013:8000"],
             depends_on={

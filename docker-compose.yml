@@ -46,6 +46,8 @@ services:
     - main_celery
     - worker
     - --loglevel=info
+    - -Q
+    - dependency
     container_name: dependency-worker
     depends_on:
       neo4j:
@@ -88,7 +90,7 @@ services:
       - --no-verbose
       - --tries=1
       - --spider
-      - http://localhost:8000/health
+      - http://127.0.0.1:8000/health
       timeout: 1s
     networks:
     - theorem-library
@@ -156,6 +158,8 @@ services:
     - main_celery
     - worker
     - --loglevel=info
+    - -Q
+    - latex
     container_name: latex-worker
     depends_on:
       rabbitmq:
@@ -350,6 +354,8 @@ services:
     - main_celery
     - worker
     - --loglevel=info
+    - -Q
+    - verification
     container_name: verification-worker
     depends_on:
       rabbitmq:

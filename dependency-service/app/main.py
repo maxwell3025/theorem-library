@@ -84,9 +84,10 @@ async def list_projects() -> typing.List[model.ProjectInfo]:
         return projects
 
 
-@app.get("/projects/{repo_url}/{commit}/dependencies")
+@app.get("/projects/{repo_url:path}/{commit}/dependencies")
 async def get_project_dependencies(repo_url: str, commit: str) -> typing.List[model.DependencyInfo]:
     """Get all dependencies for a specific project."""
+    logger.info(f"GET dependencies - repo_url='{repo_url}', commit='{commit}'")
     with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver, driver.session() as session:
         result = session.run(
             """
