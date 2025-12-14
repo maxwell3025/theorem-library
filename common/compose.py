@@ -103,6 +103,27 @@ class DockerComposeConfig(ComposeSpecification):
             ],
             depends_on={"neo4j": {"condition": Condition.service_healthy}},
         ),
+        "dependency-worker": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
+                context="./dependency-service",
+            ),
+            command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
+            container_name="dependency-worker",
+            ports=["8012:8000"],
+            environment=[
+                "NEO4J_USER=${NEO4J_USER}",
+                "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
+            ],
+            depends_on={
+                "rabbitmq": {"condition": Condition.service_healthy},
+                "neo4j": {"condition": Condition.service_healthy},
+            },
+            restart="unless-stopped",
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
+                timeout="2s",
+            ),
+        ),
         "verification-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(
                 context="./verification-service",

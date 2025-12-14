@@ -5,3 +5,6 @@ httpx==0.25.2
 httpx[cli]==0.25.2
 python-dotenv==1.0.0
 neo4j==5.15.0
+celery==5.3.4
+redis==5.0.1
+tomli==2.0.1

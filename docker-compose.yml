@@ -34,6 +34,44 @@ services:
     ports:
     - 8001:8000
     restart: unless-stopped
+  dependency-worker:
+    build:
+      additional_contexts:
+      - common=./common
+      context: ./dependency-service
+      dockerfile: Dockerfile
+    command:
+    - celery
+    - --app
+    - main_celery
+    - worker
+    - --loglevel=info
+    container_name: dependency-worker
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+    - NEO4J_USER=${NEO4J_USER}
+    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - celery
+      - --app
+      - main_celery
+      - inspect
+      - ping
+      timeout: 2s
+    networks:
+    - theorem-library
+    ports:
+    - 8012:8000
+    restart: unless-stopped
   latex-service:
     build:
       additional_contexts:
