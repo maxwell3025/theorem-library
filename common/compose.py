@@ -81,14 +81,6 @@ class DockerComposeConfig(ComposeSpecification):
                 retries=5,
             ),
         ),
-        "verification-redis": ServiceWithDefaults(
-            image="redis:7-alpine",
-            container_name="verification-redis",
-            ports=["8009:6379"],
-            healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "redis-cli", "ping"],
-            ),
-        ),
         "dependency-service": ServiceWithDefaults(
             build=BuildItemModernized(
                 context="./dependency-service",
@@ -138,6 +130,14 @@ class DockerComposeConfig(ComposeSpecification):
                 context="./dependency-task",
             ),
             deploy={"replicas": 0},
+        ),
+        "verification-redis": ServiceWithDefaults(
+            image="redis:7-alpine",
+            container_name="verification-redis",
+            ports=["8009:6379"],
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "redis-cli", "ping"],
+            ),
         ),
         "verification-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(

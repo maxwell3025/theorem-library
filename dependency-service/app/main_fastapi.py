@@ -1,3 +1,4 @@
+import sys
 import fastapi
 import logging
 from common.dependency_service import public_model
@@ -5,29 +6,44 @@ import common.model
 import common.api.neo4j
 import common.middleware
 from common.logging_config import configure_logging, configure_logging_uvicorn
+from contextlib import asynccontextmanager
 import typing
 import uvicorn
 import os
 from neo4j import GraphDatabase
-import neomodel
 from common.config import config
 from common.dependency_service import schema
+import neomodel
 import main_celery
 
 configure_logging()
 
 logger = logging.getLogger("dependency-service")
 
-app = fastapi.FastAPI()
-
-app.add_middleware(common.middleware.CorrelationIdMiddleware)
-
 # Neo4j connection parameters
-NEO4J_USER = os.getenv("NEO4J_USER", default="neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", default="")
+NEO4J_USER: str = os.getenv("NEO4J_USER") # type: ignore
+if NEO4J_USER is None:
+    raise ValueError("NEO4J_USER environment variable is not set")
+NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD") # type: ignore
+if NEO4J_PASSWORD is None:
+    raise ValueError("NEO4J_PASSWORD environment variable is not set")
+
 NEO4J_HOST = config.neo4j.host
 NEO4J_BOLT_PORT = config.neo4j.bolt_port
 NEO4J_URI = f"bolt://{NEO4J_USER}:{NEO4J_PASSWORD}@{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
+
+@asynccontextmanager
+async def lifespan(app: fastapi.FastAPI):
+    neomodel_config = neomodel.get_config()
+    neomodel_config.database_url = NEO4J_URI
+    neomodel.db.install_labels(schema.Project, quiet=False, stdout=sys.stderr)
+    logger.info("Connected to Neo4j and ensured all labels are installed.")
+    yield
+
+app = fastapi.FastAPI(lifespan=lifespan)
+
+app.add_middleware(common.middleware.CorrelationIdMiddleware)
+
 
 
 @app.get("/health", response_model=public_model.HealthCheckResponse)
@@ -94,28 +110,30 @@ async def internal_add_project(
 
         dependency_nodes: list[schema.Project] = []
         subtasks = []
+        to_index: list[public_model.ProjectInfo] = []
         for dependency in request.dependencies:
             node = schema.Project.nodes.get_or_none(
                 repo_url=dependency.repo_url,
                 commit=dependency.commit,
             )
-            node = schema.Project(
-                repo_url=dependency.repo_url,
-                commit=dependency.commit,
-            )
-            node.save()
             if node is None:
-                subtasks.append(
-                    main_celery.clone_and_index_repository.delay(
-                        dependency.repo_url,
-                        dependency.commit,
-                    )
+                to_index.append(dependency)
+                node = schema.Project(
+                    repo_url=dependency.repo_url,
+                    commit=dependency.commit,
                 )
+            node.save()
             dependency_nodes.append(node)
 
         new_project.save()
         for dependency_node in dependency_nodes:
             new_project.dependencies.connect(dependency_node)  # type: ignore
+
+    for dependency in to_index:
+        task = main_celery.clone_and_index_repository.delay(
+            dependency.repo_url, dependency.commit
+        )
+        subtasks.append(task)
 
     return fastapi.responses.JSONResponse(
         content=public_model.AddDependencyResponse(
