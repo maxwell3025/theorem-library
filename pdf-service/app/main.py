@@ -101,9 +101,7 @@ async def create_pdf(request: model.PDFCreateRequest) -> fastapi.Response:
     )
 
 
-@app.get(
-    "/{git_url_encoded}/{commit_hash}/main.pdf", response_model=model.PDFReadResponse
-)
+@app.get("/{git_url_encoded}/{commit_hash}/main.pdf")
 async def read_pdf(
     git_url_encoded: str = fastapi.Path(...),
     commit_hash: str = fastapi.Path(...),
@@ -121,20 +119,13 @@ async def read_pdf(
             status_code=404,
         )
 
-    try:
-        # Read file and encode as base64
-        async with aiofiles.open(pdf_path, "rb") as f:
-            pdf_bytes = await f.read()
+    async with aiofiles.open(pdf_path, "rb") as f:
+        pdf_bytes = await f.read()
+
         return fastapi.Response(
             media_type="application/pdf",
             content=pdf_bytes,
             status_code=200,
-        )
-    except Exception as e:
-        logger.error(f"Failed to read PDF: {e}")
-        return fastapi.responses.JSONResponse(
-            content={"error": f"Failed to read PDF: {str(e)}"},
-            status_code=500,
         )
 
 
