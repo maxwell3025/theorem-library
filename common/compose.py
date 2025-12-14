@@ -175,7 +175,7 @@ class DockerComposeConfig(ComposeSpecification):
             ),
             container_name="pdf-service",
             ports=["8003:8000"],
-            depends_on={"neo4j": {"condition": Condition.service_healthy}},
+            volumes=["pdf_data:/data"],
         ),
         "latex-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(
@@ -215,6 +215,7 @@ class DockerComposeConfig(ComposeSpecification):
     volumes: Optional[Dict[str, Optional[Dict]]] = {
         "neo4j_data": None,
         "neo4j_logs": None,
+        "pdf_data": None,
     }
     networks: Optional[Dict[str, Optional[Dict]]] = {"theorem-library": None}
 

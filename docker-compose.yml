@@ -175,9 +175,6 @@ services:
       context: ./pdf-service
       dockerfile: Dockerfile
     container_name: pdf-service
-    depends_on:
-      neo4j:
-        condition: service_healthy
     healthcheck:
       interval: 1s
       retries: 10
@@ -192,6 +189,8 @@ services:
     ports:
     - 8003:8000
     restart: unless-stopped
+    volumes:
+    - pdf_data:/data
   rabbitmq:
     container_name: rabbitmq
     healthcheck:
@@ -319,3 +318,4 @@ services:
 volumes:
   neo4j_data: null
   neo4j_logs: null
+  pdf_data: null
