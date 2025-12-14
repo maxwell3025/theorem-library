@@ -233,7 +233,7 @@ class DockerComposeConfig(ComposeSpecification):
             container_name="git-server",
             ports=["8005:8000"],
             healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"],
+                test=["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/health"],
             ),
         ),
     }
