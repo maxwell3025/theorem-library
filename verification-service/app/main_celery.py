@@ -23,7 +23,6 @@ project_name = config.project_name
 def process_verification_task(task_data_raw: str) -> None:
     logger.info(f"Processing verification task with data: {task_data_raw}")
 
-    # Validate task data with Pydantic
     task_data = model.VerificationRequest.model_validate_json(task_data_raw)
     redis_key = task_data.redis_key()
     task_id = celery.current_task.request.id
@@ -61,13 +60,14 @@ def process_verification_task(task_data_raw: str) -> None:
 
             # Wait for the container to complete
             result = container.wait()
+            logger.info(f"Result object from container wait: {result}")
             exit_code = result.get("StatusCode", -1)
             logger.info(
                 f"Verification task container completed with exit code: {exit_code}"
             )
 
             logs = container.logs().decode("utf-8")
-            logger.info(f"Verification task logs: {logs}")
+            logger.info(f"Verification task logs:\n{logs}")
 
         except Exception as e:
             exit_code = -1
