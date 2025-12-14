@@ -181,12 +181,37 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./latex-service",
             ),
+            command=["python", "main.py"],
             container_name="latex-service",
             ports=["8004:8000"],
             depends_on={
-                "neo4j": {"condition": Condition.service_healthy},
-                "pdf-service": {"condition": Condition.service_healthy},
+                "rabbitmq": {"condition": Condition.service_healthy},
+                "verification-redis": {"condition": Condition.service_healthy},
             },
+        ),
+        "latex-worker": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
+                context="./latex-service",
+            ),
+            command=["celery", "--app", "main_celery", "worker", "--loglevel=info"],
+            container_name="latex-worker",
+            ports=["8013:8000"],
+            depends_on={
+                "rabbitmq": {"condition": Condition.service_healthy},
+                "verification-redis": {"condition": Condition.service_healthy},
+            },
+            restart="unless-stopped",
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
+                timeout="2s",
+            ),
+            volumes=["/var/run/docker.sock:/var/run/docker.sock"],
+        ),
+        "latex-task": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
+                context="./latex-task",
+            ),
+            deploy={"replicas": 0},
         ),
         "nginx": ServiceWithDefaults(
             image="nginx:latest",

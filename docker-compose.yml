@@ -101,11 +101,14 @@ services:
       - common=./common
       context: ./latex-service
       dockerfile: Dockerfile
+    command:
+    - python
+    - main.py
     container_name: latex-service
     depends_on:
-      neo4j:
+      rabbitmq:
         condition: service_healthy
-      pdf-service:
+      verification-redis:
         condition: service_healthy
     healthcheck:
       interval: 1s
@@ -121,6 +124,63 @@ services:
     ports:
     - 8004:8000
     restart: unless-stopped
+  latex-task:
+    build:
+      additional_contexts:
+      - common=./common
+      context: ./latex-task
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 0
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - httpx
+      - http://localhost:8000/health
+      timeout: 1s
+    networks:
+    - theorem-library
+    restart: unless-stopped
+  latex-worker:
+    build:
+      additional_contexts:
+      - common=./common
+      context: ./latex-service
+      dockerfile: Dockerfile
+    command:
+    - celery
+    - --app
+    - main_celery
+    - worker
+    - --loglevel=info
+    container_name: latex-worker
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      verification-redis:
+        condition: service_healthy
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - celery
+      - --app
+      - main_celery
+      - inspect
+      - ping
+      timeout: 2s
+    networks:
+    - theorem-library
+    ports:
+    - 8013:8000
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
   neo4j:
     container_name: neo4j
     environment:

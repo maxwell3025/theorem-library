@@ -16,6 +16,12 @@ class VerificationConfig(BaseModel):
     verification_task_name: str = "verification-task"
 
 
+class LaTeXConfig(BaseModel):
+    """Docker container configuration for LaTeX tasks."""
+
+    latex_task_name: str = "latex-task"
+
+
 class RedisConfig(BaseModel):
     """Redis configuration for verification service."""
 
@@ -35,6 +41,7 @@ class AppConfig(BaseModel):
     project_name: str = "theorem-library"
     neo4j: Neo4jConfig = Neo4jConfig()
     verification_config: VerificationConfig = VerificationConfig()
+    latex_config: LaTeXConfig = LaTeXConfig()
     redis: RedisConfig = RedisConfig()
     services: ServiceConfig = ServiceConfig()
 

@@ -9,5 +9,3 @@ COPY ./app .
 COPY --from=common . ./common
 
 ENV PYTHONUNBUFFERED=1
-
-CMD ["python", "main.py"]
