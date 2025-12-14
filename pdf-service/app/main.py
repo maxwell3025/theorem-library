@@ -101,13 +101,18 @@ async def create_pdf(request: model.PDFCreateRequest) -> fastapi.Response:
     )
 
 
-@app.get("/pdf", response_model=model.PDFReadResponse)
+@app.get(
+    "/{git_url_encoded}/{commit_hash}/main.pdf", response_model=model.PDFReadResponse
+)
 async def read_pdf(
-    git_url: str = fastapi.Query(...),
-    commit_hash: str = fastapi.Query(...),
+    git_url_encoded: str = fastapi.Path(...),
+    commit_hash: str = fastapi.Path(...),
 ) -> fastapi.Response:
     """Read a PDF file for a specific git repository and commit."""
 
+    git_url = base64.urlsafe_b64decode(git_url_encoded.encode()).decode()
+
+    logger.info(f"Reading PDF for {git_url}@{commit_hash}")
     pdf_path = get_pdf_path(git_url, commit_hash)
 
     if not pdf_path.exists():
@@ -120,19 +125,9 @@ async def read_pdf(
         # Read file and encode as base64
         async with aiofiles.open(pdf_path, "rb") as f:
             pdf_bytes = await f.read()
-
-        pdf_data_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-        size_bytes = len(pdf_bytes)
-
-        response = model.PDFReadResponse(
-            git_url=git_url,
-            commit_hash=commit_hash,
-            pdf_data=pdf_data_b64,
-            size_bytes=size_bytes,
-        )
-
-        return fastapi.responses.JSONResponse(
-            content=response.model_dump(),
+        return fastapi.Response(
+            media_type="application/pdf",
+            content=pdf_bytes,
             status_code=200,
         )
     except Exception as e:
