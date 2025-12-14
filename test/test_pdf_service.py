@@ -21,17 +21,17 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     """Test all CRUD operations on a single PDF."""
     git_url = "https://github.com/test/theorem-repo.git"
     commit_hash = "abc123def456789"
-    
+
     # CREATE: Create a new PDF
     pdf_content_original = b"%PDF-1.4\n%Original PDF content\n%%EOF"
-    pdf_data_b64_original = base64.b64encode(pdf_content_original).decode('utf-8')
-    
+    pdf_data_b64_original = base64.b64encode(pdf_content_original).decode("utf-8")
+
     create_request = {
         "git_url": git_url,
         "commit_hash": commit_hash,
         "pdf_data": pdf_data_b64_original,
     }
-    
+
     create_response = http_client.post(
         url=f"{pdf_service_url}/pdf",
         json=create_request,
@@ -42,7 +42,7 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     assert create_data["git_url"] == git_url
     assert create_data["commit_hash"] == commit_hash
     assert create_data["size_bytes"] == len(pdf_content_original)
-    
+
     # READ: Retrieve the PDF
     read_response = http_client.get(
         url=f"{pdf_service_url}/pdf",
@@ -56,17 +56,17 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     assert read_data["size_bytes"] == len(pdf_content_original)
     retrieved_content = base64.b64decode(read_data["pdf_data"])
     assert retrieved_content == pdf_content_original
-    
+
     # UPDATE: Modify the PDF content
     pdf_content_updated = b"%PDF-1.4\n%Updated PDF content with more data\n%%EOF"
-    pdf_data_b64_updated = base64.b64encode(pdf_content_updated).decode('utf-8')
-    
+    pdf_data_b64_updated = base64.b64encode(pdf_content_updated).decode("utf-8")
+
     update_request = {
         "git_url": git_url,
         "commit_hash": commit_hash,
         "pdf_data": pdf_data_b64_updated,
     }
-    
+
     update_response = http_client.put(
         url=f"{pdf_service_url}/pdf",
         json=update_request,
@@ -77,7 +77,7 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     assert update_data["git_url"] == git_url
     assert update_data["commit_hash"] == commit_hash
     assert update_data["size_bytes"] == len(pdf_content_updated)
-    
+
     # READ again: Verify the update
     read_after_update_response = http_client.get(
         url=f"{pdf_service_url}/pdf",
@@ -89,7 +89,7 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     retrieved_updated_content = base64.b64decode(read_after_update_data["pdf_data"])
     assert retrieved_updated_content == pdf_content_updated
     assert retrieved_updated_content != pdf_content_original
-    
+
     # DELETE: Remove the PDF
     delete_response = http_client.delete(
         url=f"{pdf_service_url}/pdf",
@@ -100,7 +100,7 @@ def test_pdf_crud_operations(http_client: httpx.Client, pdf_service_url: str):
     delete_data = delete_response.json()
     assert delete_data["git_url"] == git_url
     assert delete_data["commit_hash"] == commit_hash
-    
+
     # READ after DELETE: Verify it's gone
     read_after_delete_response = http_client.get(
         url=f"{pdf_service_url}/pdf",

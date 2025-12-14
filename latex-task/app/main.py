@@ -26,6 +26,7 @@ logger = logging.getLogger("latex-task")
 
 SECONDS_PER_MINUTE = 60
 
+
 def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
     """Clone a Git repository at a specific commit."""
     logger.info(f"Cloning repository {repo_url} at commit {commit_hash}")
@@ -35,7 +36,7 @@ def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
         args=["git", "clone", repo_url, str(work_dir)],
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
     logger.debug(f"Git clone stdout: \n{clone_result.stdout}")
@@ -51,14 +52,16 @@ def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
         cwd=str(work_dir),
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
     logger.debug(f"Git checkout stdout: \n{checkout_result.stdout}")
     logger.debug(f"Git checkout stderr: \n{checkout_result.stderr}")
 
     if checkout_result.returncode != 0:
-        logger.error(f"Failed to checkout commit {commit_hash}:\n{checkout_result.stderr}")
+        logger.error(
+            f"Failed to checkout commit {commit_hash}:\n{checkout_result.stderr}"
+        )
         return False
 
     logger.info(f"Successfully cloned repository at commit {commit_hash}")
@@ -77,7 +80,7 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
     logger.info("Starting LaTeX compilation")
 
     latex_dir = work_dir / "latex-source"
-    
+
     if not latex_dir.exists():
         msg = "latex-source directory not found in repository"
         logger.error(msg)
@@ -89,7 +92,7 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
         cwd=str(latex_dir),
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
     # Run it twice to resolve references
@@ -99,23 +102,27 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
         cwd=str(latex_dir),
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
-    combined_output = ( "First pass:\n"
-                        "STDOUT:\n"
-                       f"{pdflatex_result1.stdout}\n"
-                        "\n"
-                        "STDERR:\n"
-                       f"{pdflatex_result1.stderr}\n"
-                        "\n")
-    combined_output += ( "Second pass:\n"
-                         "STDOUT:\n"
-                        f"{pdflatex_result2.stdout}\n"
-                         "\n"
-                         "STDERR:\n"
-                        f"{pdflatex_result2.stderr}\n"
-                         "\n")
+    combined_output = (
+        "First pass:\n"
+        "STDOUT:\n"
+        f"{pdflatex_result1.stdout}\n"
+        "\n"
+        "STDERR:\n"
+        f"{pdflatex_result1.stderr}\n"
+        "\n"
+    )
+    combined_output += (
+        "Second pass:\n"
+        "STDOUT:\n"
+        f"{pdflatex_result2.stdout}\n"
+        "\n"
+        "STDERR:\n"
+        f"{pdflatex_result2.stderr}\n"
+        "\n"
+    )
 
     # Check if PDF was generated
     pdf_file = latex_dir / "main.pdf"
@@ -123,7 +130,9 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
         logger.info("LaTeX compilation succeeded")
         return True, combined_output
     else:
-        logger.error(f"LaTeX compilation failed with exit code {pdflatex_result2.returncode}")
+        logger.error(
+            f"LaTeX compilation failed with exit code {pdflatex_result2.returncode}"
+        )
         return False, combined_output
 
 
@@ -153,22 +162,27 @@ def main():
         if not compilation_success:
             logger.error("LaTeX compilation failed")
             sys.exit(1)
-        
+
         with open(work_dir / "latex-source" / "main.pdf", "rb") as pdf_file:
             upload_result = httpx.put(
                 url="http://pdf-service:8000/pdf",
                 json={
-                    "repo_url": repo_url,
+                    "git_url": repo_url,
                     "commit_hash": commit_hash,
-                    "pdf-data": base64.b64encode(pdf_file.read()).decode('utf-8'),
+                    "pdf_data": base64.b64encode(pdf_file.read()).decode("utf-8"),
                 },
                 timeout=30,
             )
-            if upload_result.status_code == 201:
+            if upload_result.is_success:
                 logger.info("LaTeX compilation completed successfully")
                 sys.exit(0)
             else:
-                logger.error("Uploading PDF to pdf-service failed")
+                logger.error(
+                    "Uploading PDF to pdf-service failed:\n"
+                    f"{upload_result.status_code}\n"
+                    "\n"
+                    f"{upload_result.text[:500]}"
+                )
                 sys.exit(1)
 
 

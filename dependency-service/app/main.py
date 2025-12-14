@@ -53,20 +53,21 @@ async def health_check() -> fastapi.Response:
 async def add_project(request: model.ProjectInfo) -> model.AddProjectResponse:
     """Add a project by cloning its repository at a specific commit and indexing dependencies."""
     logger.info(f"Received request to add project {request.repo_url}@{request.commit}")
-    
+
     # Queue the Celery task
-    task = main_celery.clone_and_index_repository.delay(request.repo_url, request.commit)
-    
-    return model.AddProjectResponse(
-        task_id=task.id,
-        status="queued"
+    task = main_celery.clone_and_index_repository.delay(
+        request.repo_url, request.commit
     )
+
+    return model.AddProjectResponse(task_id=task.id, status="queued")
 
 
 @app.get("/projects")
 async def list_projects() -> typing.List[model.ProjectInfo]:
     """List all projects in the database."""
-    with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver, driver.session() as session:
+    with GraphDatabase.driver(
+        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
+    ) as driver, driver.session() as session:
         result = session.run(
             """
             MATCH (p:Project)
@@ -75,20 +76,21 @@ async def list_projects() -> typing.List[model.ProjectInfo]:
             """
         )
         projects = [
-            model.ProjectInfo(
-                repo_url=record["repo_url"],
-                commit=record["commit"]
-            )
+            model.ProjectInfo(repo_url=record["repo_url"], commit=record["commit"])
             for record in result
         ]
         return projects
 
 
 @app.get("/projects/{repo_url:path}/{commit}/dependencies")
-async def get_project_dependencies(repo_url: str, commit: str) -> typing.List[model.DependencyInfo]:
+async def get_project_dependencies(
+    repo_url: str, commit: str
+) -> typing.List[model.DependencyInfo]:
     """Get all dependencies for a specific project."""
     logger.info(f"GET dependencies - repo_url='{repo_url}', commit='{commit}'")
-    with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver, driver.session() as session:
+    with GraphDatabase.driver(
+        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
+    ) as driver, driver.session() as session:
         result = session.run(
             """
             MATCH (p:Project {repo_url: $repo_url, commit: $commit})-[:DEPENDS_ON]->(d:Project)
@@ -97,14 +99,14 @@ async def get_project_dependencies(repo_url: str, commit: str) -> typing.List[mo
             ORDER BY d.repo_url, d.commit
             """,
             repo_url=repo_url,
-            commit=commit
+            commit=commit,
         )
         dependencies = [
             model.DependencyInfo(
                 source_repo=record["source_repo"],
                 source_commit=record["source_commit"],
                 dependency_repo=record["dependency_repo"],
-                dependency_commit=record["dependency_commit"]
+                dependency_commit=record["dependency_commit"],
             )
             for record in result
         ]
@@ -114,32 +116,34 @@ async def get_project_dependencies(repo_url: str, commit: str) -> typing.List[mo
 @app.post("/dependencies", status_code=201)
 async def add_dependency(request: model.DependencyInfo):
     """Manually add a dependency relationship."""
-    with GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)) as driver, driver.session() as session:
+    with GraphDatabase.driver(
+        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
+    ) as driver, driver.session() as session:
         # Ensure source project exists
         # Verify source project exists
         source_result = session.run(
             "MATCH (p:Project {repo_url: $repo_url, commit: $commit}) RETURN p",
             repo_url=request.source_repo,
-            commit=request.source_commit
+            commit=request.source_commit,
         )
         if not source_result.single():
             raise fastapi.HTTPException(
                 status_code=404,
-                detail=f"Source project '{request.source_repo}@{request.source_commit}' not found"
+                detail=f"Source project '{request.source_repo}@{request.source_commit}' not found",
             )
-        
+
         # Verify destination project exists
         dest_result = session.run(
             "MATCH (p:Project {repo_url: $repo_url, commit: $commit}) RETURN p",
             repo_url=request.dependency_repo,
-            commit=request.dependency_commit
+            commit=request.dependency_commit,
         )
         if not dest_result.single():
             raise fastapi.HTTPException(
                 status_code=404,
-                detail=f"Dependency project '{request.dependency_repo}@{request.dependency_commit}' not found"
+                detail=f"Dependency project '{request.dependency_repo}@{request.dependency_commit}' not found",
             )
-        
+
         try:
             # Create dependency relationship
             session.run(
@@ -151,14 +155,11 @@ async def add_dependency(request: model.DependencyInfo):
                 source_repo=request.source_repo,
                 source_commit=request.source_commit,
                 dep_repo=request.dependency_repo,
-                dep_commit=request.dependency_commit
+                dep_commit=request.dependency_commit,
             )
         except Exception as e:
             logger.error(f"Error adding dependency: {e}", exc_info=True)
-            raise fastapi.HTTPException(
-                status_code=500,
-                detail=f"Error: {str(e)}"
-            )
+            raise fastapi.HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 if __name__ == "__main__":

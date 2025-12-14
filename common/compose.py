@@ -107,7 +107,15 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./dependency-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "dependency"],
+            command=[
+                "celery",
+                "--app",
+                "main_celery",
+                "worker",
+                "--loglevel=info",
+                "-Q",
+                "dependency",
+            ],
             container_name="dependency-worker",
             ports=["8012:8000"],
             environment=[
@@ -140,7 +148,15 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./verification-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "verification"],
+            command=[
+                "celery",
+                "--app",
+                "main_celery",
+                "worker",
+                "--loglevel=info",
+                "-Q",
+                "verification",
+            ],
             container_name="verification-worker",
             ports=["8008:8000"],
             depends_on={
@@ -193,7 +209,15 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./latex-service",
             ),
-            command=["celery", "--app", "main_celery", "worker", "--loglevel=info", "-Q", "latex"],
+            command=[
+                "celery",
+                "--app",
+                "main_celery",
+                "worker",
+                "--loglevel=info",
+                "-Q",
+                "latex",
+            ],
             container_name="latex-worker",
             ports=["8013:8000"],
             depends_on={
@@ -233,7 +257,14 @@ class DockerComposeConfig(ComposeSpecification):
             container_name="git-server",
             ports=["8005:8000"],
             healthcheck=HealthcheckWithDefaults(
-                test=["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8000/health"],
+                test=[
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--tries=1",
+                    "--spider",
+                    "http://127.0.0.1:8000/health",
+                ],
             ),
         ),
     }

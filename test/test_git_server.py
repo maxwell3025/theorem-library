@@ -26,13 +26,13 @@ def test_git_server_list_repositories(http_client: httpx.Client, git_server_url:
     assert "repositories" in data
     repositories = data["repositories"]
     assert len(repositories) >= 3
-    
+
     # Verify required repositories exist
     repo_names = {repo["name"] for repo in repositories}
     assert "base-math" in repo_names
     assert "algebra-theorems" in repo_names
     assert "advanced-proofs" in repo_names
-    
+
     # Verify each repository has required fields
     for repo in repositories:
         assert "name" in repo
@@ -47,7 +47,7 @@ def test_git_repositories_fixture(git_repositories: dict):
     assert "base-math" in git_repositories
     assert "algebra-theorems" in git_repositories
     assert "advanced-proofs" in git_repositories
-    
+
     # Verify structure of each repository entry
     for name, repo in git_repositories.items():
         assert repo["name"] == name

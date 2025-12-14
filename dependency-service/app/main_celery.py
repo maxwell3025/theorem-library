@@ -39,10 +39,10 @@ def parse_dependencies_from_repo(repo_path: Path, repo_url: str, commit: str) ->
     # Parse lakefile.toml to get lakefile dependencies
     lakefile = repo_path / "lakefile.toml"
     lakefile_deps = {}
-    
+
     with open(lakefile, "rb") as f:
         lake_data = tomli.load(f)
-        
+
         # Extract dependencies from lakefile.toml
         # Lean 4 lakefile.toml has [[require]] sections for each dependency
         lakefile_requires = lake_data.get("require", [])
@@ -57,29 +57,31 @@ def parse_dependencies_from_repo(repo_path: Path, repo_url: str, commit: str) ->
     math_deps_file = repo_path / "math-dependencies.json"
     with open(math_deps_file, "r") as f:
         dependency_list = json.load(f)
-        
+
         for dep in dependency_list:
             dep_git = dep.get("git")
             dep_commit = dep.get("commit")
-            
+
             # Validate required fields
             if not dep_git:
                 validation_errors.append("Dependency missing 'git' field")
                 continue
-            
+
             if not dep_commit:
-                validation_errors.append(f"Dependency '{dep_git}' missing 'commit' field")
+                validation_errors.append(
+                    f"Dependency '{dep_git}' missing 'commit' field"
+                )
                 continue
-            
+
             # Validate dependency exists in lakefile.toml with exact commit
             if dep_git not in lakefile_deps:
                 validation_errors.append(
                     f"Dependency '{dep_git}' in math-dependencies.json not found in lakefile.toml [[require]] sections"
                 )
                 continue
-            
+
             lakefile_rev = lakefile_deps[dep_git]
-            
+
             # Check commit/rev matches exactly
             if lakefile_rev != dep_commit:
                 validation_errors.append(
@@ -87,26 +89,21 @@ def parse_dependencies_from_repo(repo_path: Path, repo_url: str, commit: str) ->
                     f"math-dependencies.json has '{dep_commit}', lakefile.toml has '{lakefile_rev}'"
                 )
                 continue
-            
+
             # All validations passed
-            dependencies.append({
-                "git": dep_git,
-                "commit": dep_commit
-            })
+            dependencies.append({"git": dep_git, "commit": dep_commit})
 
     if validation_errors:
-        error_msg = f"Validation failed for {repo_url}@{commit}: {'; '.join(validation_errors)}"
+        error_msg = (
+            f"Validation failed for {repo_url}@{commit}: {'; '.join(validation_errors)}"
+        )
         logger.error(error_msg)
         raise ValueError(error_msg)
 
-    return {
-        "repo_url": repo_url,
-        "commit": commit,
-        "dependencies": dependencies
-    }
+    return {"repo_url": repo_url, "commit": commit, "dependencies": dependencies}
 
 
-@celery_app.task(queue='dependency')
+@celery_app.task(queue="dependency")
 def clone_and_index_repository(repo_url: str, commit: str) -> dict:
     """Clone a repository at a specific commit and index its dependencies in Neo4j."""
     task_id = celery.current_task.request.id
@@ -206,7 +203,9 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
                         source_commit=commit,
                     )
 
-                logger.info(f"Successfully indexed project {repo_url}@{commit} in Neo4j")
+                logger.info(
+                    f"Successfully indexed project {repo_url}@{commit} in Neo4j"
+                )
 
             result = {
                 "status": "success",

@@ -9,12 +9,14 @@ class HealthCheckResponse(common.model.HealthCheckResponse):
 
 class PDFIdentifier(BaseModel):
     """Identifier for a PDF document based on git repository and commit."""
+
     git_url: str = Field(..., description="Git repository URL")
     commit_hash: str = Field(..., description="Commit hash")
 
 
 class PDFCreateRequest(BaseModel):
     """Request to create a PDF document."""
+
     git_url: str = Field(..., description="Git repository URL")
     commit_hash: str = Field(..., description="Commit hash")
     pdf_data: str = Field(..., description="Base64-encoded PDF content")
@@ -22,6 +24,7 @@ class PDFCreateRequest(BaseModel):
 
 class PDFCreateResponse(BaseModel):
     """Response after creating a PDF."""
+
     git_url: str
     commit_hash: str
     size_bytes: int
@@ -29,6 +32,7 @@ class PDFCreateResponse(BaseModel):
 
 class PDFReadResponse(BaseModel):
     """Response when reading a PDF."""
+
     git_url: str
     commit_hash: str
     pdf_data: str = Field(..., description="Base64-encoded PDF content")
@@ -37,6 +41,7 @@ class PDFReadResponse(BaseModel):
 
 class PDFUpdateRequest(BaseModel):
     """Request to update a PDF document."""
+
     git_url: str = Field(..., description="Git repository URL")
     commit_hash: str = Field(..., description="Commit hash")
     pdf_data: str = Field(..., description="Base64-encoded PDF content")
@@ -44,6 +49,7 @@ class PDFUpdateRequest(BaseModel):
 
 class PDFUpdateResponse(BaseModel):
     """Response after updating a PDF."""
+
     git_url: str
     commit_hash: str
     size_bytes: int
@@ -51,5 +57,6 @@ class PDFUpdateResponse(BaseModel):
 
 class PDFDeleteResponse(BaseModel):
     """Response after deleting a PDF."""
+
     git_url: str
     commit_hash: str

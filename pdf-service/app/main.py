@@ -27,7 +27,7 @@ PDF_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
 def get_pdf_path(git_url: str, commit_hash: str) -> Path:
     """Generate a filesystem path for a PDF based on git_url and commit_hash.
-    
+
     Uses SHA256 hash of git_url to create a directory, then stores by commit_hash.
     This avoids filesystem issues with special characters in URLs.
     """
@@ -35,13 +35,13 @@ def get_pdf_path(git_url: str, commit_hash: str) -> Path:
     # Create nested directory structure: first 2 chars / next 2 chars / rest
     dir_path = PDF_STORAGE_DIR / url_hash[:2] / url_hash[2:4] / url_hash
     dir_path.mkdir(parents=True, exist_ok=True)
-    
+
     # Store metadata file alongside PDFs
     metadata_file = dir_path / ".url"
     if not metadata_file.exists():
         with open(metadata_file, "w") as f:
             f.write(git_url)
-    
+
     return dir_path / f"{commit_hash}.pdf"
 
 
@@ -67,49 +67,38 @@ async def health_check() -> fastapi.Response:
 @app.post("/pdf", response_model=model.PDFCreateResponse)
 async def create_pdf(request: model.PDFCreateRequest) -> fastapi.Response:
     """Create a PDF file for a specific git repository and commit."""
-    
+
     pdf_path = get_pdf_path(request.git_url, request.commit_hash)
-    
-    # Check if PDF already exists
     if pdf_path.exists():
         return fastapi.responses.JSONResponse(
             content={"error": "PDF already exists. Use PUT to update."},
             status_code=409,
         )
-    
+
     try:
-        # Decode base64 PDF data
         pdf_bytes = base64.b64decode(request.pdf_data)
-        
-        # Write file to disk
-        async with aiofiles.open(pdf_path, 'wb') as f:
-            await f.write(pdf_bytes)
-        
-        size_bytes = len(pdf_bytes)
-        logger.info(f"Created PDF for {request.git_url}@{request.commit_hash}, size: {size_bytes} bytes")
-        
-        response = model.PDFCreateResponse(
-            git_url=request.git_url,
-            commit_hash=request.commit_hash,
-            size_bytes=size_bytes,
-        )
-        
-        return fastapi.responses.JSONResponse(
-            content=response.model_dump(),
-            status_code=201,
-        )
     except binascii.Error as e:
         logger.error(f"Invalid base64 data: {e}")
         return fastapi.responses.JSONResponse(
             content={"error": "Invalid base64-encoded PDF data"},
             status_code=400,
         )
-    except Exception as e:
-        logger.error(f"Failed to create PDF: {e}")
-        return fastapi.responses.JSONResponse(
-            content={"error": f"Failed to create PDF: {str(e)}"},
-            status_code=500,
-        )
+
+    async with aiofiles.open(pdf_path, "wb") as f:
+        await f.write(pdf_bytes)
+    size_bytes = len(pdf_bytes)
+    logger.info(
+        f"Created PDF for {request.git_url}@{request.commit_hash}, size: {size_bytes} bytes"
+    )
+
+    return fastapi.responses.JSONResponse(
+        content=model.PDFUpdateResponse(
+            git_url=request.git_url,
+            commit_hash=request.commit_hash,
+            size_bytes=size_bytes,
+        ).model_dump(),
+        status_code=201,
+    )
 
 
 @app.get("/pdf", response_model=model.PDFReadResponse)
@@ -118,30 +107,30 @@ async def read_pdf(
     commit_hash: str = fastapi.Query(...),
 ) -> fastapi.Response:
     """Read a PDF file for a specific git repository and commit."""
-    
+
     pdf_path = get_pdf_path(git_url, commit_hash)
-    
+
     if not pdf_path.exists():
         return fastapi.responses.JSONResponse(
             content={"error": "PDF not found"},
             status_code=404,
         )
-    
+
     try:
         # Read file and encode as base64
-        async with aiofiles.open(pdf_path, 'rb') as f:
+        async with aiofiles.open(pdf_path, "rb") as f:
             pdf_bytes = await f.read()
-        
-        pdf_data_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
+
+        pdf_data_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
         size_bytes = len(pdf_bytes)
-        
+
         response = model.PDFReadResponse(
             git_url=git_url,
             commit_hash=commit_hash,
             pdf_data=pdf_data_b64,
             size_bytes=size_bytes,
         )
-        
+
         return fastapi.responses.JSONResponse(
             content=response.model_dump(),
             status_code=200,
@@ -157,42 +146,34 @@ async def read_pdf(
 @app.put("/pdf", response_model=model.PDFUpdateResponse)
 async def update_pdf(request: model.PDFUpdateRequest) -> fastapi.Response:
     """Update a PDF file for a specific git repository and commit."""
-    
+
     pdf_path = get_pdf_path(request.git_url, request.commit_hash)
-    
+
+    resource_exists = pdf_path.exists()
     try:
-        # Decode base64 PDF data
         pdf_bytes = base64.b64decode(request.pdf_data)
-        
-        # Write file to disk
-        async with aiofiles.open(pdf_path, 'wb') as f:
-            await f.write(pdf_bytes)
-        
-        size_bytes = len(pdf_bytes)
-        logger.info(f"Updated PDF for {request.git_url}@{request.commit_hash}, size: {size_bytes} bytes")
-        
-        response = model.PDFUpdateResponse(
-            git_url=request.git_url,
-            commit_hash=request.commit_hash,
-            size_bytes=size_bytes,
-        )
-        
-        return fastapi.responses.JSONResponse(
-            content=response.model_dump(),
-            status_code=200,
-        )
     except binascii.Error as e:
         logger.error(f"Invalid base64 data: {e}")
         return fastapi.responses.JSONResponse(
             content={"error": "Invalid base64-encoded PDF data"},
             status_code=400,
         )
-    except Exception as e:
-        logger.error(f"Failed to update PDF: {e}")
-        return fastapi.responses.JSONResponse(
-            content={"error": f"Failed to update PDF: {str(e)}"},
-            status_code=500,
-        )
+
+    async with aiofiles.open(pdf_path, "wb") as f:
+        await f.write(pdf_bytes)
+    size_bytes = len(pdf_bytes)
+    logger.info(
+        f"{'Updated' if resource_exists else 'Created'} PDF for {request.git_url}@{request.commit_hash}, size: {size_bytes} bytes"
+    )
+
+    return fastapi.responses.JSONResponse(
+        content=model.PDFUpdateResponse(
+            git_url=request.git_url,
+            commit_hash=request.commit_hash,
+            size_bytes=size_bytes,
+        ).model_dump(),
+        status_code=204 if resource_exists else 201,
+    )
 
 
 @app.delete("/pdf", response_model=model.PDFDeleteResponse)
@@ -201,24 +182,24 @@ async def delete_pdf(
     commit_hash: str = fastapi.Query(...),
 ) -> fastapi.Response:
     """Delete a PDF file for a specific git repository and commit."""
-    
+
     pdf_path = get_pdf_path(git_url, commit_hash)
-    
+
     if not pdf_path.exists():
         return fastapi.responses.JSONResponse(
             content={"error": "PDF not found"},
             status_code=404,
         )
-    
+
     try:
         pdf_path.unlink()
         logger.info(f"Deleted PDF for {git_url}@{commit_hash}")
-        
+
         response = model.PDFDeleteResponse(
             git_url=git_url,
             commit_hash=commit_hash,
         )
-        
+
         return fastapi.responses.JSONResponse(
             content=response.model_dump(),
             status_code=200,

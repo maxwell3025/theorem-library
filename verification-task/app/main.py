@@ -26,6 +26,7 @@ logger = logging.getLogger("verification-task")
 
 SECONDS_PER_MINUTE = 60
 
+
 def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
     """Clone a Git repository at a specific commit."""
     logger.info(f"Cloning repository {repo_url} at commit {commit_hash}")
@@ -35,7 +36,7 @@ def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
         args=["git", "clone", repo_url, str(work_dir)],
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
     logger.debug(f"Git clone stdout: \n{clone_result.stdout}")
@@ -51,14 +52,16 @@ def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
         cwd=str(work_dir),
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,
+        timeout=10 * SECONDS_PER_MINUTE,
     )
 
     logger.debug(f"Git checkout stdout: \n{checkout_result.stdout}")
     logger.debug(f"Git checkout stderr: \n{checkout_result.stderr}")
 
     if checkout_result.returncode != 0:
-        logger.error(f"Failed to checkout commit {commit_hash}:\n{checkout_result.stderr}")
+        logger.error(
+            f"Failed to checkout commit {commit_hash}:\n{checkout_result.stderr}"
+        )
         return False
 
     logger.info(f"Successfully cloned repository at commit {commit_hash}")
@@ -78,20 +81,24 @@ def verify_lean_proof(work_dir: Path) -> tuple[bool, str]:
         cwd=str(work_dir),
         capture_output=True,
         text=True,
-        timeout=30*SECONDS_PER_MINUTE,
+        timeout=30 * SECONDS_PER_MINUTE,
     )
 
-    combined_output = ( "STDOUT:\n"
-                       f"{lake_build_result.stdout}\n"
-                        "\n"
-                        "STDERR:\n"
-                       f"{lake_build_result.stderr}")
+    combined_output = (
+        "STDOUT:\n"
+        f"{lake_build_result.stdout}\n"
+        "\n"
+        "STDERR:\n"
+        f"{lake_build_result.stderr}"
+    )
 
     if lake_build_result.returncode == 0:
         logger.info("Lean 4 verification succeeded")
         return True, combined_output
     else:
-        logger.error(f"Lean 4 verification failed with exit code {lake_build_result.returncode}")
+        logger.error(
+            f"Lean 4 verification failed with exit code {lake_build_result.returncode}"
+        )
         return False, combined_output
 
 

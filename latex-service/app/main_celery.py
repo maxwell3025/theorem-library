@@ -19,7 +19,7 @@ latex_task_name = config.latex_config.latex_task_name
 project_name = config.project_name
 
 
-@celery_app.task(queue='latex')
+@celery_app.task(queue="latex")
 def process_latex_task(task_data_raw: str) -> None:
     logger.info(f"Processing LaTeX task with data: {task_data_raw}")
 
@@ -63,9 +63,7 @@ def process_latex_task(task_data_raw: str) -> None:
             result = container.wait()
             logger.info(f"Result object from container wait: {result}")
             exit_code = result.get("StatusCode", -1)
-            logger.info(
-                f"LaTeX task container completed with exit code: {exit_code}"
-            )
+            logger.info(f"LaTeX task container completed with exit code: {exit_code}")
 
             logs = container.logs().decode("utf-8")
             logger.info(f"LaTeX task logs:\n{logs}")

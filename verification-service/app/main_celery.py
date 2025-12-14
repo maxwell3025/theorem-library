@@ -19,7 +19,7 @@ verification_task_name = config.verification_config.verification_task_name
 project_name = config.project_name
 
 
-@celery_app.task(queue='verification')
+@celery_app.task(queue="verification")
 def process_verification_task(task_data_raw: str) -> None:
     logger.info(f"Processing verification task with data: {task_data_raw}")
 
