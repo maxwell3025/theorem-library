@@ -9,18 +9,17 @@ This container:
 4. Outputs results and exits
 """
 
+import base64
 import os
 import sys
 import logging
 import subprocess
 import tempfile
+import httpx
 from pathlib import Path
+from common import logging_config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+logging_config.configure_logging()
 
 logger = logging.getLogger("latex-task")
 
@@ -77,31 +76,23 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
     """
     logger.info("Starting LaTeX compilation")
 
-    # Check if latex-source/main.tex exists
     latex_dir = work_dir / "latex-source"
-    main_tex = latex_dir / "main.tex"
     
     if not latex_dir.exists():
         msg = "latex-source directory not found in repository"
         logger.error(msg)
         return False, msg
-    
-    if not main_tex.exists():
-        msg = "main.tex not found in latex-source directory"
-        logger.error(msg)
-        return False, msg
 
-    # Run pdflatex to compile the LaTeX document
-    # Run it twice to resolve references
     logger.info("Running 'pdflatex main.tex' (first pass)...")
     pdflatex_result1 = subprocess.run(
         args=["pdflatex", "-interaction=nonstopmode", "main.tex"],
         cwd=str(latex_dir),
         capture_output=True,
         text=True,
-        timeout=10*SECONDS_PER_MINUTE,  # 10 minutes timeout for large documents
+        timeout=10*SECONDS_PER_MINUTE,
     )
 
+    # Run it twice to resolve references
     logger.info("Running 'pdflatex main.tex' (second pass)...")
     pdflatex_result2 = subprocess.run(
         args=["pdflatex", "-interaction=nonstopmode", "main.tex"],
@@ -111,8 +102,20 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
         timeout=10*SECONDS_PER_MINUTE,
     )
 
-    combined_output = f"First pass:\nSTDOUT:\n{pdflatex_result1.stdout}\n\nSTDERR:\n{pdflatex_result1.stderr}\n\n"
-    combined_output += f"Second pass:\nSTDOUT:\n{pdflatex_result2.stdout}\n\nSTDERR:\n{pdflatex_result2.stderr}"
+    combined_output = ( "First pass:\n"
+                        "STDOUT:\n"
+                       f"{pdflatex_result1.stdout}\n"
+                        "\n"
+                        "STDERR:\n"
+                       f"{pdflatex_result1.stderr}\n"
+                        "\n")
+    combined_output += ( "Second pass:\n"
+                         "STDOUT:\n"
+                        f"{pdflatex_result2.stdout}\n"
+                         "\n"
+                         "STDERR:\n"
+                        f"{pdflatex_result2.stderr}\n"
+                         "\n")
 
     # Check if PDF was generated
     pdf_file = latex_dir / "main.pdf"
@@ -138,26 +141,35 @@ def main():
 
     # Create temporary working directory
     with tempfile.TemporaryDirectory() as temp_dir:
-        work_dir = Path(temp_dir) / "repo"
-        work_dir.mkdir(parents=True, exist_ok=True)
+        work_dir = Path(temp_dir)
 
-        # Clone repository
         if not clone_repository(repo_url, commit_hash, work_dir):
             logger.error("Failed to clone repository")
             sys.exit(1)
 
-        # Compile LaTeX document
         compilation_success, compilation_output = compile_latex(work_dir)
 
-        # Log compilation output
         logger.info(f"Compilation output:\n{compilation_output}")
-
-        if compilation_success:
-            logger.info("LaTeX compilation completed successfully")
-            sys.exit(0)
-        else:
+        if not compilation_success:
             logger.error("LaTeX compilation failed")
             sys.exit(1)
+        
+        with open(work_dir / "latex-source" / "main.pdf", "rb") as pdf_file:
+            upload_result = httpx.put(
+                url="http://pdf-service:8000/pdf",
+                json={
+                    "repo_url": repo_url,
+                    "commit_hash": commit_hash,
+                    "pdf-data": base64.b64encode(pdf_file.read()).decode('utf-8'),
+                },
+                timeout=30,
+            )
+            if upload_result.status_code == 201:
+                logger.info("LaTeX compilation completed successfully")
+                sys.exit(0)
+            else:
+                logger.error("Uploading PDF to pdf-service failed")
+                sys.exit(1)
 
 
 if __name__ == "__main__":

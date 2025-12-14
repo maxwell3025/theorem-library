@@ -1,2 +1,1 @@
-# No additional Python packages needed for latex-task
-# The task uses only standard library modules
+httpx==0.28.1

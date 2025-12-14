@@ -16,8 +16,8 @@ RUN elan default stable
 COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY ./app ./
 COPY --from=common . ./common
-COPY ./app ./app
 
 ENV PYTHONUNBUFFERED=1
 

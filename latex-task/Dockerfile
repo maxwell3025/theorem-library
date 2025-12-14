@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y \
 COPY ./requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
 
-COPY ./app ./app
+COPY ./app ./
+COPY --from=common . ./common
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python3", "app/main.py"]
+CMD ["python3", "main.py"]

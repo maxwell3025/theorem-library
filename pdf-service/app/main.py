@@ -8,6 +8,7 @@ import typing
 import uvicorn
 import hashlib
 import base64
+import binascii
 import aiofiles
 from pathlib import Path
 
@@ -97,7 +98,7 @@ async def create_pdf(request: model.PDFCreateRequest) -> fastapi.Response:
             content=response.model_dump(),
             status_code=201,
         )
-    except base64.binascii.Error as e:
+    except binascii.Error as e:
         logger.error(f"Invalid base64 data: {e}")
         return fastapi.responses.JSONResponse(
             content={"error": "Invalid base64-encoded PDF data"},
@@ -159,13 +160,6 @@ async def update_pdf(request: model.PDFUpdateRequest) -> fastapi.Response:
     
     pdf_path = get_pdf_path(request.git_url, request.commit_hash)
     
-    # Check if PDF exists
-    if not pdf_path.exists():
-        return fastapi.responses.JSONResponse(
-            content={"error": "PDF not found. Use POST to create."},
-            status_code=404,
-        )
-    
     try:
         # Decode base64 PDF data
         pdf_bytes = base64.b64decode(request.pdf_data)
@@ -187,7 +181,7 @@ async def update_pdf(request: model.PDFUpdateRequest) -> fastapi.Response:
             content=response.model_dump(),
             status_code=200,
         )
-    except base64.binascii.Error as e:
+    except binascii.Error as e:
         logger.error(f"Invalid base64 data: {e}")
         return fastapi.responses.JSONResponse(
             content={"error": "Invalid base64-encoded PDF data"},
