@@ -9,7 +9,9 @@ import typing
 import uvicorn
 import os
 from neo4j import GraphDatabase
+import neomodel
 from common.config import config
+from common.dependency_service import schema
 import main_celery
 
 configure_logging()
@@ -25,7 +27,7 @@ NEO4J_USER = os.getenv("NEO4J_USER", default="neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", default="")
 NEO4J_HOST = config.neo4j.host
 NEO4J_BOLT_PORT = config.neo4j.bolt_port
-NEO4J_URI = f"bolt://{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
+NEO4J_URI = f"bolt://{NEO4J_USER}:{NEO4J_PASSWORD}@{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
 
 
 @app.get("/health", response_model=public_model.HealthCheckResponse)
@@ -68,6 +70,63 @@ async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
     )
 
 
+@app.post("/internal/projects", response_model=public_model.AddDependencyResponse)
+async def internal_add_project(
+    request: public_model.AddProjectInternalRequest,
+) -> fastapi.Response:
+    """Internal endpoint to add project dependencies directly to the database."""
+
+    neomodel_config = neomodel.get_config()
+    neomodel_config.database_url = NEO4J_URI
+
+    logger.info(f"Connecting to Neo4j")
+    with neomodel.db.write_transaction:
+        new_project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.source.repo_url,
+            commit=request.source.commit,
+        )
+        if new_project is None:
+            new_project = schema.Project(
+                repo_url=request.source.repo_url,
+                commit=request.source.commit,
+                has_valid_dependencies=request.is_valid,
+            )
+
+        dependency_nodes: list[schema.Project] = []
+        subtasks = []
+        for dependency in request.dependencies:
+            node = schema.Project.nodes.get_or_none(
+                repo_url=dependency.repo_url,
+                commit=dependency.commit,
+            )
+            node = schema.Project(
+                repo_url=dependency.repo_url,
+                commit=dependency.commit,
+            )
+            node.save()
+            if node is None:
+                subtasks.append(
+                    main_celery.clone_and_index_repository.delay(
+                        dependency.repo_url,
+                        dependency.commit,
+                    )
+                )
+            dependency_nodes.append(node)
+
+        new_project.save()
+        for dependency_node in dependency_nodes:
+            new_project.dependencies.connect(dependency_node)  # type: ignore
+
+    return fastapi.responses.JSONResponse(
+        content=public_model.AddDependencyResponse(
+            success=True,
+            message="Project and dependencies added successfully",
+            subtask_ids=[task.id for task in subtasks],
+        ).model_dump(),
+        status_code=202,
+    )
+
+
 @app.get("/projects")
 async def list_projects() -> typing.List[public_model.ProjectInfo]:
     """List all projects in the database."""
@@ -82,7 +141,9 @@ async def list_projects() -> typing.List[public_model.ProjectInfo]:
             """
         )
         projects = [
-            public_model.ProjectInfo(repo_url=record["repo_url"], commit=record["commit"])
+            public_model.ProjectInfo(
+                repo_url=record["repo_url"], commit=record["commit"]
+            )
             for record in result
         ]
         return projects

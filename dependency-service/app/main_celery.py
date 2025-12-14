@@ -70,8 +70,6 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
                 "COMMIT_HASH": commit,
                 "NEO4J_USER": neo4j_user,
                 "NEO4J_PASSWORD": neo4j_password,
-                "NEO4J_HOST": neo4j_host,
-                "NEO4J_BOLT_PORT": neo4j_bolt_port,
             },
         )
 

@@ -8,3 +8,4 @@ neo4j==5.28.2
 celery==5.3.4
 redis==5.0.1
 docker==7.1.0
+neomodel==6.0.0

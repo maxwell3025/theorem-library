@@ -18,10 +18,9 @@ import tempfile
 import json
 from pathlib import Path
 import typing
-import neomodel
+import httpx
 import tomli
-from common.dependency_service import public_model, schema
-from common import config
+from common.dependency_service import public_model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,17 +33,6 @@ logger = logging.getLogger("dependency-task")
 
 SECONDS_PER_MINUTE = 60
 
-# Neo4j connection parameters (from environment)
-NEO4J_USER = os.getenv("NEO4J_USER")
-if NEO4J_USER is None:
-    raise ValueError("NEO4J_USER environment variable is not set")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-if NEO4J_PASSWORD is None:
-    raise ValueError("NEO4J_PASSWORD environment variable is not set")
-
-NEO4J_HOST = config.config.neo4j.host
-NEO4J_BOLT_PORT = config.config.neo4j.bolt_port
-NEO4J_URI = f"bolt://{NEO4J_USER}:{NEO4J_PASSWORD}@{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
 
 
 def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
@@ -178,41 +166,6 @@ def parse_dependencies_from_repo(
     return dependencies
 
 
-def index_dependencies_in_neo4j(
-    repo_url: str, commit: str, dependencies: typing.List[public_model.ProjectInfo]
-) -> bool:
-    """Store project and dependencies in Neo4j."""
-    logger.info(f"Connecting to Neo4j at {NEO4J_URI}")
-
-    neomodel_config = neomodel.get_config()
-    neomodel_config.DATABASE_URL = NEO4J_URI
-    with neomodel.db.write_transaction:
-        dependency_nodes: list[schema.Project] = [
-            schema.Project.nodes.get_or_none(repo_url=dependency.repo_url, commit=dependency.commit)
-            for dependency in dependencies
-        ]
-        if None in dependency_nodes:
-            missing = [
-                dependencies[i]
-                for i, node in enumerate(dependency_nodes)
-                if node is None
-            ]
-            logger.error(
-                f"Some dependencies not found in Neo4j: {missing}. "
-                "Ensure all dependencies are added before indexing."
-            )
-            return False
-
-        new_project: schema.Project = schema.Project.nodes.get_or_none(
-            repo_url=repo_url, commit=commit
-        )
-        if new_project is None:
-            new_project = schema.Project(repo_url=repo_url, commit=commit)
-        new_project.save()
-        for dependency_node in dependency_nodes:
-            new_project.dependencies.connect(dependency_node).save() # type: ignore
-    return True
-
 
 def main() -> int:
     """Main entry point for the dependency task."""
@@ -222,7 +175,7 @@ def main() -> int:
     repo_url = os.getenv("URL")
     commit_hash = os.getenv("COMMIT_HASH")
 
-    if not repo_url or not commit_hash:
+    if repo_url is None or commit_hash is None:
         logger.error("Missing required environment variables: URL and COMMIT_HASH")
         return 1
 
@@ -248,13 +201,23 @@ def main() -> int:
             logger.error(f"Unexpected error parsing dependencies: {e}", exc_info=True)
             return 1
 
-        # Step 3: Index in Neo4j
-        if not index_dependencies_in_neo4j(repo_url, commit_hash, dependencies):
-            logger.error("Failed to index dependencies in Neo4j")
-            return 1
+        post_result = httpx.post(
+            "http://dependency-service:8000/internal/projects",
+            json=public_model.AddProjectInternalRequest(
+                source=public_model.ProjectInfo(
+                    repo_url=repo_url,
+                    commit=commit_hash,
+                ),
+                dependencies=dependencies,
+                is_valid=True,
+            ).model_dump(),
+        )
 
-    logger.info("Dependency task completed successfully")
-    return 0
+    if post_result.is_success:
+        result_data = public_model.AddDependencyResponse.model_validate(post_result.json())
+        logger.info(f"Dependency task completed successfully and queued subtasks {result_data.subtask_ids}")
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
