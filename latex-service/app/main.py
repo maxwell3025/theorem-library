@@ -9,8 +9,6 @@ from common.logging_config import configure_logging, configure_logging_uvicorn
 import typing
 import main_celery
 import uvicorn
-import time
-import json
 
 configure_logging()
 
@@ -19,6 +17,8 @@ logger = logging.getLogger("latex-service")
 app = fastapi.FastAPI()
 
 app.add_middleware(common.middleware.CorrelationIdMiddleware)
+
+SECONDS_PER_DAY = 86400
 
 
 @app.get("/health", response_model=model.HealthCheckResponse)
@@ -36,8 +36,8 @@ async def health_check(x_correlation_id: str = fastapi.Header()) -> fastapi.Resp
         dependencies=dependencies,
     )
 
-    return fastapi.Response(
-        content=response_content.model_dump_json(exclude_none=True),
+    return fastapi.responses.JSONResponse(
+        content=response_content.model_dump(exclude_none=True),
         status_code=status_code,
     )
 
@@ -46,81 +46,61 @@ async def health_check(x_correlation_id: str = fastapi.Header()) -> fastapi.Resp
 async def compile_latex(
     request: model.LaTeXRequest,
 ) -> fastapi.Response:
-    # Validate request with Pydantic
-    validated_request = model.LaTeXRequest.model_validate(request)
+    task = main_celery.process_latex_task.delay(request.model_dump_json())
 
-    redis_key = validated_request.redis_key()
-    task_data = validated_request.model_dump_json()
-
-    # Queue the task first to get task_id
-    task = main_celery.process_latex_task.delay(task_data)
-
-    # Store initial status in Redis
-    redis_client = common.api.redis.get_redis_client()
-    try:
-        # Validate and store status with task_id
-        redis_data = model.RedisTaskData(status="queued", task_id=task.id)
-        redis_client.set(redis_key, redis_data.model_dump_json())
-        redis_client.expire(redis_key, 86400)  # Expire after 24 hours
-    except Exception as e:
-        logger.error(f"Failed to store task status in Redis: {e}")
-        redis_client.close()
-        return fastapi.responses.JSONResponse(
-            content={"error": "Failed to queue task"}, status_code=500
+    with common.api.redis.get_redis_client() as redis_client:
+        redis_key = request.redis_key()
+        redis_data = model.RedisTaskData(
+            status="queued",
+            task_id=task.id,
         )
-    finally:
-        redis_client.close()
+        redis_client.set(redis_key, redis_data.model_dump_json())
+        redis_client.expire(redis_key, SECONDS_PER_DAY)
 
     return fastapi.responses.JSONResponse(
-        content={
-            "repo_url": validated_request.repo_url,
-            "commit_hash": validated_request.commit_hash,
-            "status": "queued",
-        },
+        content=model.LaTeXTaskResponse(
+            repo_url=request.repo_url,
+            commit_hash=request.commit_hash,
+            status="queued",
+            task_id=task.id,
+        ).model_dump(),
         status_code=202,
     )
 
 
-@app.post("/status")
+@app.get("/status")
 async def get_status(request: model.LaTeXRequest) -> fastapi.Response:
-    try:
-        validated_request = model.LaTeXRequest.model_validate(request)
-    except Exception as e:
-        return fastapi.responses.JSONResponse(
-            content={"error": f"Invalid request parameters: {e}"}, status_code=400
-        )
+    redis_key = request.redis_key()
 
-    redis_key = validated_request.redis_key()
-
-    response = None
-
+    redis_data: model.RedisTaskData | None = None
     with common.api.redis.get_redis_client() as redis_client:
-        status: model.TaskStatus | typing.Literal["not_found"] = "not_found"
-        task_id = None
-
         redis_value = redis_client.get(redis_key)
         if redis_value:
             try:
                 redis_data = model.RedisTaskData.model_validate_json(redis_value)
-                status = redis_data.status
-                task_id = redis_data.task_id
             except Exception:
                 logger.error(f"Invalid data in Redis: {redis_value}")
+                redis_client.delete(redis_key)
 
-        response = model.TaskStatusResponse(
-            repo_url=validated_request.repo_url,
-            commit_hash=validated_request.commit_hash,
-            status=status,
-            task_id=task_id,
-        )
-
-    if response is None:
+    if redis_data is not None:
         return fastapi.responses.JSONResponse(
-            content={"error": "Failed to retrieve task status"}, status_code=500
+            content=model.TaskStatusResponse(
+                repo_url=request.repo_url,
+                commit_hash=request.commit_hash,
+                status=redis_data.status,
+                task_id=redis_data.task_id,
+            ).model_dump(),
+            status_code=200,
         )
-    return fastapi.responses.JSONResponse(
-        content=response.model_dump(), status_code=200
-    )
+    else:
+        return fastapi.responses.JSONResponse(
+            content={
+                "repo_url": request.repo_url,
+                "commit_hash": request.commit_hash,
+                "status": "not_found",
+            },
+            status_code=404,
+        )
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ class LaTeXTaskResponse(BaseModel):
     repo_url: str
     commit_hash: str
     status: typing.Literal["queued"] = "queued"
+    task_id: str
 
 
 class LaTeXStatus(BaseModel):

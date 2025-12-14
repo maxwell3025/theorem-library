@@ -11,11 +11,9 @@ This container:
 
 import os
 import sys
-import json
 import logging
 import subprocess
 import tempfile
-import shutil
 from pathlib import Path
 
 logging.basicConfig(
@@ -27,47 +25,41 @@ logging.basicConfig(
 logger = logging.getLogger("latex-task")
 
 
-def run_command(
-    cmd: list[str], cwd: str | None = None, timeout: int = 300
-) -> tuple[int, str, str]:
-    """Run a shell command and return exit code, stdout, stderr."""
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        return result.returncode, result.stdout, result.stderr
-    except subprocess.TimeoutExpired as e:
-        return -1, "", f"Command timed out after {timeout} seconds: {' '.join(cmd)}"
-    except Exception as e:
-        return -1, "", f"Error running command: {str(e)}"
-
+SECONDS_PER_MINUTE = 60
 
 def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
     """Clone a Git repository at a specific commit."""
     logger.info(f"Cloning repository {repo_url} at commit {commit_hash}")
 
     # Clone the repository
-    exit_code, stdout, stderr = run_command(
-        ["git", "clone", repo_url, str(work_dir)],
-        timeout=600,
+    clone_result = subprocess.run(
+        args=["git", "clone", repo_url, str(work_dir)],
+        capture_output=True,
+        text=True,
+        timeout=10*SECONDS_PER_MINUTE,
     )
 
-    if exit_code != 0:
-        logger.error(f"Failed to clone repository: {stderr}")
+    logger.debug(f"Git clone stdout: \n{clone_result.stdout}")
+    logger.debug(f"Git clone stderr: \n{clone_result.stderr}")
+
+    if clone_result.returncode != 0:
+        logger.error(f"Failed to clone repository:\n{clone_result.stderr}")
         return False
 
-    # Checkout the specific commit
-    exit_code, stdout, stderr = run_command(
-        ["git", "checkout", commit_hash],
+    # Checkout the commit
+    checkout_result = subprocess.run(
+        args=["git", "checkout", commit_hash],
         cwd=str(work_dir),
+        capture_output=True,
+        text=True,
+        timeout=10*SECONDS_PER_MINUTE,
     )
 
-    if exit_code != 0:
-        logger.error(f"Failed to checkout commit {commit_hash}: {stderr}")
+    logger.debug(f"Git checkout stdout: \n{checkout_result.stdout}")
+    logger.debug(f"Git checkout stderr: \n{checkout_result.stderr}")
+
+    if checkout_result.returncode != 0:
+        logger.error(f"Failed to checkout commit {commit_hash}:\n{checkout_result.stderr}")
         return False
 
     logger.info(f"Successfully cloned repository at commit {commit_hash}")
@@ -102,29 +94,33 @@ def compile_latex(work_dir: Path) -> tuple[bool, str]:
     # Run pdflatex to compile the LaTeX document
     # Run it twice to resolve references
     logger.info("Running 'pdflatex main.tex' (first pass)...")
-    exit_code1, stdout1, stderr1 = run_command(
-        ["pdflatex", "-interaction=nonstopmode", "main.tex"],
+    pdflatex_result1 = subprocess.run(
+        args=["pdflatex", "-interaction=nonstopmode", "main.tex"],
         cwd=str(latex_dir),
-        timeout=600,  # 10 minutes timeout for large documents
+        capture_output=True,
+        text=True,
+        timeout=10*SECONDS_PER_MINUTE,  # 10 minutes timeout for large documents
     )
 
     logger.info("Running 'pdflatex main.tex' (second pass)...")
-    exit_code2, stdout2, stderr2 = run_command(
-        ["pdflatex", "-interaction=nonstopmode", "main.tex"],
+    pdflatex_result2 = subprocess.run(
+        args=["pdflatex", "-interaction=nonstopmode", "main.tex"],
         cwd=str(latex_dir),
-        timeout=600,
+        capture_output=True,
+        text=True,
+        timeout=10*SECONDS_PER_MINUTE,
     )
 
-    combined_output = f"First pass:\nSTDOUT:\n{stdout1}\n\nSTDERR:\n{stderr1}\n\n"
-    combined_output += f"Second pass:\nSTDOUT:\n{stdout2}\n\nSTDERR:\n{stderr2}"
+    combined_output = f"First pass:\nSTDOUT:\n{pdflatex_result1.stdout}\n\nSTDERR:\n{pdflatex_result1.stderr}\n\n"
+    combined_output += f"Second pass:\nSTDOUT:\n{pdflatex_result2.stdout}\n\nSTDERR:\n{pdflatex_result2.stderr}"
 
     # Check if PDF was generated
     pdf_file = latex_dir / "main.pdf"
-    if pdf_file.exists() and exit_code2 == 0:
+    if pdf_file.exists() and pdflatex_result2.returncode == 0:
         logger.info("LaTeX compilation succeeded")
         return True, combined_output
     else:
-        logger.error(f"LaTeX compilation failed with exit code {exit_code2}")
+        logger.error(f"LaTeX compilation failed with exit code {pdflatex_result2.returncode}")
         return False, combined_output
 
 
