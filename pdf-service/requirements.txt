@@ -4,5 +4,5 @@ pydantic==2.5.0
 httpx==0.25.2
 httpx[cli]==0.25.2
 python-dotenv==1.0.0
-neo4j==5.15.0
+neo4j==5.28.2
 aiofiles==23.2.1

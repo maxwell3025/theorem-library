@@ -131,6 +131,13 @@ class DockerComposeConfig(ComposeSpecification):
                 test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
                 timeout="2s",
             ),
+            volumes=["/var/run/docker.sock:/var/run/docker.sock"],
+        ),
+        "dependency-task": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
+                context="./dependency-task",
+            ),
+            deploy={"replicas": 0},
         ),
         "verification-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(

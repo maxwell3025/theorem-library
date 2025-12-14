@@ -34,6 +34,26 @@ services:
     ports:
     - 8001:8000
     restart: unless-stopped
+  dependency-task:
+    build:
+      additional_contexts:
+      - common=./common
+      context: ./dependency-task
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 0
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - httpx
+      - http://localhost:8000/health
+      timeout: 1s
+    networks:
+    - theorem-library
+    restart: unless-stopped
   dependency-worker:
     build:
       additional_contexts:
@@ -74,6 +94,8 @@ services:
     ports:
     - 8012:8000
     restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
   git-server:
     build:
       additional_contexts: []

@@ -29,6 +29,10 @@ class DependencyInfo(BaseModel):
     dependency_repo: str = Field(..., description="Dependency git URL")
     dependency_commit: str = Field(..., description="Dependency commit hash")
 
+class AddDependencyRequest(BaseModel):
+    """Information about a dependency relationship."""
+    source: ProjectInfo
+    dependency: typing.List[ProjectInfo]
 
 class AddDependencyResponse(BaseModel):
     """Response from adding a dependency."""

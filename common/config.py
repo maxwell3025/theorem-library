@@ -22,6 +22,12 @@ class LaTeXConfig(BaseModel):
     latex_task_name: str = "latex-task"
 
 
+class DependencyConfig(BaseModel):
+    """Docker container configuration for dependency tasks."""
+
+    dependency_task_name: str = "dependency-task"
+
+
 class RedisConfig(BaseModel):
     """Redis configuration for verification service."""
 
@@ -42,6 +48,7 @@ class AppConfig(BaseModel):
     neo4j: Neo4jConfig = Neo4jConfig()
     verification_config: VerificationConfig = VerificationConfig()
     latex_config: LaTeXConfig = LaTeXConfig()
+    dependency_config: DependencyConfig = DependencyConfig()
     redis: RedisConfig = RedisConfig()
     services: ServiceConfig = ServiceConfig()
 

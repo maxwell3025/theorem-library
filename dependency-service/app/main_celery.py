@@ -1,15 +1,9 @@
 from common.logging_config import configure_logging, configure_logging_celery
 from common.config import config
-import common.api.neo4j
 import celery
 import celery.utils.log
+import docker
 import os
-import tempfile
-import subprocess
-import json
-from pathlib import Path
-import tomli
-import model
 
 configure_logging()
 
@@ -19,99 +13,34 @@ configure_logging_celery(celery_app)
 
 logger = celery.utils.log.get_task_logger("dependency_celery")
 
-# Neo4j connection parameters
-NEO4J_USER = os.getenv("NEO4J_USER", default="neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", default="")
-NEO4J_HOST = config.neo4j.host
-NEO4J_BOLT_PORT = config.neo4j.bolt_port
-NEO4J_URI = f"bolt://{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
+dependency_task_name = config.dependency_config.dependency_task_name
 
-
-def parse_dependencies_from_repo(repo_path: Path, repo_url: str, commit: str) -> dict:
-    """
-    Parse dependencies from math-dependencies.json and validate against lakefile.toml for Lean 4 packages.
-    Ensures all math dependencies have exact git commits specified in lakefile.toml.
-    Raises exceptions if validation fails.
-    """
-    dependencies = []
-    validation_errors = []
-
-    # Parse lakefile.toml to get lakefile dependencies
-    lakefile = repo_path / "lakefile.toml"
-    lakefile_deps = {}
-
-    with open(lakefile, "rb") as f:
-        lake_data = tomli.load(f)
-
-        # Extract dependencies from lakefile.toml
-        # Lean 4 lakefile.toml has [[require]] sections for each dependency
-        lakefile_requires = lake_data.get("require", [])
-        for req in lakefile_requires:
-            if isinstance(req, dict):
-                dep_git = req.get("git")
-                dep_rev = req.get("rev")
-                if dep_git and dep_rev:
-                    lakefile_deps[dep_git] = dep_rev
-
-    # Parse math-dependencies.json
-    math_deps_file = repo_path / "math-dependencies.json"
-    with open(math_deps_file, "r") as f:
-        dependency_list = json.load(f)
-
-        for dep in dependency_list:
-            dep_git = dep.get("git")
-            dep_commit = dep.get("commit")
-
-            # Validate required fields
-            if not dep_git:
-                validation_errors.append("Dependency missing 'git' field")
-                continue
-
-            if not dep_commit:
-                validation_errors.append(
-                    f"Dependency '{dep_git}' missing 'commit' field"
-                )
-                continue
-
-            # Validate dependency exists in lakefile.toml with exact commit
-            if dep_git not in lakefile_deps:
-                validation_errors.append(
-                    f"Dependency '{dep_git}' in math-dependencies.json not found in lakefile.toml [[require]] sections"
-                )
-                continue
-
-            lakefile_rev = lakefile_deps[dep_git]
-
-            # Check commit/rev matches exactly
-            if lakefile_rev != dep_commit:
-                validation_errors.append(
-                    f"Dependency '{dep_git}': commit mismatch - "
-                    f"math-dependencies.json has '{dep_commit}', lakefile.toml has '{lakefile_rev}'"
-                )
-                continue
-
-            # All validations passed
-            dependencies.append({"git": dep_git, "commit": dep_commit})
-
-    if validation_errors:
-        error_msg = (
-            f"Validation failed for {repo_url}@{commit}: {'; '.join(validation_errors)}"
-        )
-        logger.error(error_msg)
-        raise ValueError(error_msg)
-
-    return {"repo_url": repo_url, "commit": commit, "dependencies": dependencies}
+project_name = config.project_name
 
 
 @celery_app.task(queue="dependency")
 def clone_and_index_repository(repo_url: str, commit: str) -> dict:
     """Clone a repository at a specific commit and index its dependencies in Neo4j."""
     task_id = celery.current_task.request.id
-    logger.info(f"Task {task_id}: Cloning repository {repo_url} at commit {commit}")
+    logger.info(f"Task {task_id}: Processing dependency task for {repo_url}@{commit}")
 
-    from neo4j import GraphDatabase
+    if not task_id:
+        logger.error("No task ID found for the current Celery task.")
+        return {
+            "status": "failed",
+            "message": "No task ID found",
+            "repo_url": repo_url,
+            "commit": commit,
+            "dependencies_count": 0,
+        }
 
-    driver = None
+    client = docker.from_env()
+
+    # Get the network name
+    network_name = f"{project_name}_theorem-library"
+
+    exit_code = -1
+    container = None
     result = {
         "status": "failed",
         "message": "",
@@ -121,108 +50,72 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
     }
 
     try:
-        # Create a temporary directory for cloning
-        with tempfile.TemporaryDirectory() as temp_dir:
-            repo_path = Path(temp_dir) / "repo"
+        neo4j_user = os.getenv("NEO4J_USER")
+        if neo4j_user is None:
+            raise ValueError("NEO4J_USER environment variable is not set")
+        neo4j_password = os.getenv("NEO4J_PASSWORD")
+        if neo4j_password is None:
+            raise ValueError("NEO4J_PASSWORD environment variable is not set")
+        neo4j_host = config.neo4j.host
+        neo4j_bolt_port = config.neo4j.bolt_port
 
-            # Clone the repository
-            logger.info(f"Cloning into {repo_path}")
-            clone_result = subprocess.run(
-                [
-                    "git",
-                    "clone",
-                    repo_url,
-                    str(repo_path),
-                ],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
+        # Run a new container instance of the dependency-task
+        container = client.containers.run(
+            image=f"{project_name}-{dependency_task_name}",
+            network=network_name,
+            name=f"dependency-task-{task_id}",
+            detach=True,
+            environment={
+                "URL": repo_url,
+                "COMMIT_HASH": commit,
+                "NEO4J_USER": neo4j_user,
+                "NEO4J_PASSWORD": neo4j_password,
+                "NEO4J_HOST": neo4j_host,
+                "NEO4J_BOLT_PORT": neo4j_bolt_port,
+            },
+        )
 
-            if clone_result.returncode != 0:
-                error_msg = f"Failed to clone repository: {clone_result.stderr}"
-                logger.error(error_msg)
-                result["message"] = error_msg
-                return result
+        logger.info(f"Started dependency task container: {container.id}")
 
-            # Checkout the specific commit
-            logger.info(f"Checking out commit {commit}")
-            checkout_result = subprocess.run(
-                ["git", "checkout", commit],
-                cwd=repo_path,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
+        # Wait for the container to complete
+        wait_result = container.wait()
+        exit_code = wait_result.get("StatusCode", -1)
+        logger.info(
+            f"Dependency task container completed with exit code: {exit_code}"
+        )
 
-            if checkout_result.returncode != 0:
-                error_msg = f"Failed to checkout commit: {checkout_result.stderr}"
-                logger.error(error_msg)
-                result["message"] = error_msg
-                return result
+        logs = container.logs().decode("utf-8")
+        logger.info(f"Dependency task logs:\n{logs}")
 
-            logger.info(f"Successfully checked out commit")
-
-            # Parse dependencies (will raise ValueError if validation fails)
-            dep_info = parse_dependencies_from_repo(repo_path, repo_url, commit)
-            dependencies = dep_info["dependencies"]
-
-            logger.info(
-                f"Found project {repo_url}@{commit} with {len(dependencies)} dependencies"
-            )
-
-            # Connect to Neo4j and store the data
-            driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-
-            with driver.session() as session:
-                # Create or merge the project node (identified by repo_url + commit)
-                session.run(
-                    """
-                    MERGE (p:Project {repo_url: $repo_url, commit: $commit})
-                    SET p.last_indexed = datetime()
-                    """,
-                    repo_url=repo_url,
-                    commit=commit,
-                )
-
-                # Create dependency nodes and relationships
-                for dep in dependencies:
-                    dep_git = dep.get("git")
-                    dep_commit = dep.get("commit")
-
-                    session.run(
-                        """
-                        MERGE (d:Project {repo_url: $dep_repo, commit: $dep_commit})
-                        WITH d
-                        MATCH (p:Project {repo_url: $source_repo, commit: $source_commit})
-                        MERGE (p)-[r:DEPENDS_ON]->(d)
-                        """,
-                        dep_repo=dep_git,
-                        dep_commit=dep_commit,
-                        source_repo=repo_url,
-                        source_commit=commit,
-                    )
-
-                logger.info(
-                    f"Successfully indexed project {repo_url}@{commit} in Neo4j"
-                )
-
+        if exit_code == 0:
             result = {
                 "status": "success",
-                "message": f"Successfully indexed {repo_url}@{commit} with {len(dependencies)} dependencies",
+                "message": f"Successfully indexed {repo_url}@{commit}",
                 "repo_url": repo_url,
                 "commit": commit,
-                "dependencies_count": len(dependencies),
+                "dependencies_count": 0,  # Could parse from logs if needed
+            }
+        else:
+            result = {
+                "status": "failed",
+                "message": f"Dependency task failed with exit code {exit_code}",
+                "repo_url": repo_url,
+                "commit": commit,
+                "dependencies_count": 0,
             }
 
-    except subprocess.TimeoutExpired:
-        result["message"] = "Repository clone timed out after 5 minutes"
-        logger.error(result["message"])
     except Exception as e:
-        result["message"] = f"Error processing repository: {str(e)}"
-        logger.error(result["message"], exc_info=True)
+        logger.error(f"Error running dependency task: {e}", exc_info=True)
+        result = {
+            "status": "failed",
+            "message": f"Error processing repository: {str(e)}",
+            "repo_url": repo_url,
+            "commit": commit,
+            "dependencies_count": 0,
+        }
     finally:
-        if driver:
-            driver.close()
+        if container:
+            container.remove()
+            logger.info(f"Removed dependency task container: {container.id}")
 
     return result

@@ -1,6 +1,6 @@
 import fastapi
 import logging
-import model
+from common.dependency_service import public_model
 import common.model
 import common.api.neo4j
 import common.middleware
@@ -28,7 +28,7 @@ NEO4J_BOLT_PORT = config.neo4j.bolt_port
 NEO4J_URI = f"bolt://{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
 
 
-@app.get("/health", response_model=model.HealthCheckResponse)
+@app.get("/health", response_model=public_model.HealthCheckResponse)
 async def health_check() -> fastapi.Response:
     # Currently, nothing can cause a service to report itself as unhealthy
     status: common.model.HealthCheckStatus = "healthy"
@@ -38,7 +38,7 @@ async def health_check() -> fastapi.Response:
         "neo4j": common.api.neo4j.check_health()
     }
 
-    response_content = model.HealthCheckResponse(
+    response_content = public_model.HealthCheckResponse(
         status=status,
         dependencies=dependencies,
     )
@@ -49,8 +49,8 @@ async def health_check() -> fastapi.Response:
     )
 
 
-@app.post("/projects", response_model=model.AddProjectResponse)
-async def add_project(request: model.ProjectInfo) -> model.AddProjectResponse:
+@app.post("/projects", response_model=public_model.AddProjectResponse)
+async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
     """Add a project by cloning its repository at a specific commit and indexing dependencies."""
     logger.info(f"Received request to add project {request.repo_url}@{request.commit}")
 
@@ -59,11 +59,17 @@ async def add_project(request: model.ProjectInfo) -> model.AddProjectResponse:
         request.repo_url, request.commit
     )
 
-    return model.AddProjectResponse(task_id=task.id, status="queued")
+    return fastapi.responses.JSONResponse(
+        content=public_model.AddProjectResponse(
+            task_id=task.id,
+            status="queued",
+        ).model_dump(),
+        status_code=202,
+    )
 
 
 @app.get("/projects")
-async def list_projects() -> typing.List[model.ProjectInfo]:
+async def list_projects() -> typing.List[public_model.ProjectInfo]:
     """List all projects in the database."""
     with GraphDatabase.driver(
         NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
@@ -76,7 +82,7 @@ async def list_projects() -> typing.List[model.ProjectInfo]:
             """
         )
         projects = [
-            model.ProjectInfo(repo_url=record["repo_url"], commit=record["commit"])
+            public_model.ProjectInfo(repo_url=record["repo_url"], commit=record["commit"])
             for record in result
         ]
         return projects
@@ -85,7 +91,7 @@ async def list_projects() -> typing.List[model.ProjectInfo]:
 @app.get("/projects/{repo_url:path}/{commit}/dependencies")
 async def get_project_dependencies(
     repo_url: str, commit: str
-) -> typing.List[model.DependencyInfo]:
+) -> typing.List[public_model.DependencyInfo]:
     """Get all dependencies for a specific project."""
     logger.info(f"GET dependencies - repo_url='{repo_url}', commit='{commit}'")
     with GraphDatabase.driver(
@@ -102,7 +108,7 @@ async def get_project_dependencies(
             commit=commit,
         )
         dependencies = [
-            model.DependencyInfo(
+            public_model.DependencyInfo(
                 source_repo=record["source_repo"],
                 source_commit=record["source_commit"],
                 dependency_repo=record["dependency_repo"],
@@ -111,55 +117,6 @@ async def get_project_dependencies(
             for record in result
         ]
         return dependencies
-
-
-@app.post("/dependencies", status_code=201)
-async def add_dependency(request: model.DependencyInfo):
-    """Manually add a dependency relationship."""
-    with GraphDatabase.driver(
-        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
-    ) as driver, driver.session() as session:
-        # Ensure source project exists
-        # Verify source project exists
-        source_result = session.run(
-            "MATCH (p:Project {repo_url: $repo_url, commit: $commit}) RETURN p",
-            repo_url=request.source_repo,
-            commit=request.source_commit,
-        )
-        if not source_result.single():
-            raise fastapi.HTTPException(
-                status_code=404,
-                detail=f"Source project '{request.source_repo}@{request.source_commit}' not found",
-            )
-
-        # Verify destination project exists
-        dest_result = session.run(
-            "MATCH (p:Project {repo_url: $repo_url, commit: $commit}) RETURN p",
-            repo_url=request.dependency_repo,
-            commit=request.dependency_commit,
-        )
-        if not dest_result.single():
-            raise fastapi.HTTPException(
-                status_code=404,
-                detail=f"Dependency project '{request.dependency_repo}@{request.dependency_commit}' not found",
-            )
-
-        try:
-            # Create dependency relationship
-            session.run(
-                """
-                MATCH (p:Project {repo_url: $source_repo, commit: $source_commit})
-                MATCH (d:Project {repo_url: $dep_repo, commit: $dep_commit})
-                MERGE (p)-[:DEPENDS_ON]->(d)
-                """,
-                source_repo=request.source_repo,
-                source_commit=request.source_commit,
-                dep_repo=request.dependency_repo,
-                dep_commit=request.dependency_commit,
-            )
-        except Exception as e:
-            logger.error(f"Error adding dependency: {e}", exc_info=True)
-            raise fastapi.HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 
 if __name__ == "__main__":

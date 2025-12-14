@@ -13,4 +13,4 @@ COPY --from=common . ./common
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "main_fastapi.py"]
+CMD ["python", "main.py"]
