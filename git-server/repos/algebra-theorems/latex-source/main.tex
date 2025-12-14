@@ -1,0 +1,31 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amsthm}
+
+\title{Algebra Theorems Package}
+\author{Test Author}
+\date{\today}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This package builds upon the base-math package to provide algebraic theorems and proofs.
+
+\section{Algebraic Structures}
+We define and prove properties of basic algebraic structures.
+
+\begin{theorem}
+The sum of two even numbers is even.
+\end{theorem}
+
+\begin{proof}
+Let $a$ and $b$ be even numbers. Then $a = 2k$ and $b = 2m$ for some integers $k$ and $m$.
+Therefore, $a + b = 2k + 2m = 2(k + m)$, which is even.
+\end{proof}
+
+\end{document}

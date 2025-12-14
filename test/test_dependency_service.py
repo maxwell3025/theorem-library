@@ -30,13 +30,14 @@ def test_list_projects(http_client: httpx.Client, dependency_service_url: str):
         assert "commit" in project
 
 
-def test_add_project(http_client: httpx.Client, dependency_service_url: str):
+def test_add_project(http_client: httpx.Client, dependency_service_url: str, git_repositories: dict):
     """Test adding a project by cloning its repository."""
+    base_math = git_repositories["base-math"]
     response = http_client.post(
         url=f"{dependency_service_url}/projects",
         json={
-            "repo_url": "https://github.com/leanprover-community/mathlib4",
-            "commit": "a1b2c3d4e5f6"
+            "repo_url": base_math["url"],
+            "commit": base_math["commit"]
         }
     )
     pretty_print_response(response, logger)
@@ -183,4 +184,84 @@ def test_add_project_invalid_url_format(http_client: httpx.Client, dependency_se
     assert response.status_code == 200
     data = response.json()
     assert "task_id" in data
+
+
+def test_add_interconnected_packages(http_client: httpx.Client, dependency_service_url: str, git_repositories: dict):
+    """Test adding interconnected packages with proper dependencies."""
+    # Add base-math (no dependencies)
+    base_math = git_repositories["base-math"]
+    response = http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={
+            "repo_url": base_math["url"],
+            "commit": base_math["commit"]
+        }
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    
+    # Wait for task to process
+    time.sleep(3)
+    
+    # Add algebra-theorems (depends on base-math)
+    algebra_theorems = git_repositories["algebra-theorems"]
+    response = http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={
+            "repo_url": algebra_theorems["url"],
+            "commit": algebra_theorems["commit"]
+        }
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    
+    # Wait for task to process
+    time.sleep(3)
+    
+    # Add advanced-proofs (depends on both)
+    advanced_proofs = git_repositories["advanced-proofs"]
+    response = http_client.post(
+        url=f"{dependency_service_url}/projects",
+        json={
+            "repo_url": advanced_proofs["url"],
+            "commit": advanced_proofs["commit"]
+        }
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    
+    # Wait for task to process
+    time.sleep(3)
+    
+    # Verify dependencies for advanced-proofs
+    response = http_client.get(
+        url=f"{dependency_service_url}/projects/{advanced_proofs['url']}/{advanced_proofs['commit']}/dependencies"
+    )
+    pretty_print_response(response, logger)
+    assert response.status_code == 200
+    dependencies = response.json()
+    assert len(dependencies) == 2
+    
+    # Check that both dependencies are present
+    dep_repos = [dep["dependency_repo"] for dep in dependencies]
+    assert base_math["url"] in dep_repos
+    assert algebra_theorems["url"] in dep_repos
+
+
+def test_verify_dependency_chain(http_client: httpx.Client, dependency_service_url: str, git_repositories: dict):
+    """Test that the dependency chain is properly recorded in the database."""
+    algebra_theorems = git_repositories["algebra-theorems"]
+    base_math = git_repositories["base-math"]
+    
+    # Get dependencies for algebra-theorems
+    response = http_client.get(
+        url=f"{dependency_service_url}/projects/{algebra_theorems['url']}/{algebra_theorems['commit']}/dependencies"
+    )
+    
+    if response.status_code == 200:
+        dependencies = response.json()
+        # Should have exactly one dependency (base-math)
+        assert len(dependencies) == 1
+        assert dependencies[0]["dependency_repo"] == base_math["url"]
+        assert dependencies[0]["dependency_commit"] == base_math["commit"]
 

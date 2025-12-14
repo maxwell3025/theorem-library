@@ -200,6 +200,17 @@ class DockerComposeConfig(ComposeSpecification):
             },
             healthcheck=None,
         ),
+        "git-server": ServiceWithDefaults(
+            build=BuildItemWithDefaults(
+                context="./git-server",
+                additional_contexts=[],
+            ),
+            container_name="git-server",
+            ports=["8005:8000"],
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"],
+            ),
+        ),
     }
     volumes: Optional[Dict[str, Optional[Dict]]] = {
         "neo4j_data": None,

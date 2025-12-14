@@ -1,0 +1,10 @@
+[
+  {
+    "git": "http://git-server:8000/base-math",
+    "commit": "COMMIT_BASE_MATH"
+  },
+  {
+    "git": "http://git-server:8000/algebra-theorems",
+    "commit": "COMMIT_ALGEBRA_THEOREMS"
+  }
+]

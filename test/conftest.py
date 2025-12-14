@@ -32,6 +32,7 @@ SERVICES = {
     "verification-service": "http://localhost/verification-service",
     "pdf-service": "http://localhost/pdf-service",
     "latex-service": "http://localhost/latex-service",
+    "git-server": "http://localhost:8005",
 }
 
 
@@ -151,3 +152,27 @@ def pdf_service_url(docker_compose) -> str:
 def latex_service_url(docker_compose) -> str:
     """Return the base URL for the LaTeX service."""
     return SERVICES["latex-service"]
+
+
+@pytest.fixture
+def git_server_url(docker_compose) -> str:
+    """Return the base URL for the git test server."""
+    return SERVICES["git-server"]
+
+
+@pytest.fixture
+def git_repositories(http_client: httpx.Client, git_server_url: str) -> dict:
+    """
+    Fetch and return information about available git repositories.
+    
+    Returns a dict mapping repository names to their info:
+    {
+        "base-math": {"name": "base-math", "url": "http://...", "commit": "abc123..."},
+        ...
+    }
+    """
+    response = http_client.get(f"{git_server_url}/repositories")
+    assert response.status_code == 200
+    data = response.json()
+    repositories = {repo["name"]: repo for repo in data["repositories"]}
+    return repositories

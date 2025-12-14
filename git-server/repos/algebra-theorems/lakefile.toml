@@ -1,0 +1,11 @@
+name = "algebra-theorems"
+version = "1.0.0"
+defaultTargets = ["AlgebraTheorems"]
+
+[[require]]
+name = "base-math"
+git = "http://git-server:8000/base-math"
+rev = "COMMIT_BASE_MATH"
+
+[[lean_lib]]
+name = "AlgebraTheorems"

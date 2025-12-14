@@ -1,0 +1,6 @@
+name = "base-math"
+version = "1.0.0"
+defaultTargets = ["BaseMath"]
+
+[[lean_lib]]
+name = "BaseMath"

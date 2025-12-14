@@ -1,0 +1,16 @@
+name = "advanced-proofs"
+version = "1.0.0"
+defaultTargets = ["AdvancedProofs"]
+
+[[require]]
+name = "base-math"
+git = "http://git-server:8000/base-math"
+rev = "COMMIT_BASE_MATH"
+
+[[require]]
+name = "algebra-theorems"
+git = "http://git-server:8000/algebra-theorems"
+rev = "COMMIT_ALGEBRA_THEOREMS"
+
+[[lean_lib]]
+name = "AdvancedProofs"
