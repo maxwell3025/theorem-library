@@ -57,4 +57,3 @@ class AddDependencyResponse(BaseModel):
 
     success: bool
     message: str
-    subtask_ids: typing.List[str]

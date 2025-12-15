@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 import typing
 import uvicorn
 import os
+import httpx
 from neo4j import GraphDatabase
 from common.config import config
 from common.dependency_service import schema
@@ -85,10 +86,48 @@ async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
                 commit=request.commit,
             )
 
-    # Queue the Celery task
+    # Queue the Celery task for dependency indexing
     task = main_celery.clone_and_index_repository.delay(
         request.repo_url, request.commit
     )
+
+    # Request verification service to verify the proofs
+    try:
+        verification_response = httpx.post(
+            url="http://verification-service:8000/run",
+            json={"repo_url": request.repo_url, "commit_hash": request.commit},
+            timeout=30,
+        )
+        if verification_response.is_success:
+            logger.info(
+                f"Queued verification task for {request.repo_url}@{request.commit}"
+            )
+        else:
+            logger.error(
+                f"Failed to queue verification task: {verification_response.status_code}\n"
+                f"{verification_response.text[:500]}"
+            )
+    except Exception as e:
+        logger.error(f"Exception while requesting verification: {e}")
+
+    # Request latex service to compile the paper
+    try:
+        latex_response = httpx.post(
+            url="http://latex-service:8000/run",
+            json={"repo_url": request.repo_url, "commit_hash": request.commit},
+            timeout=30,
+        )
+        if latex_response.is_success:
+            logger.info(
+                f"Queued LaTeX compilation task for {request.repo_url}@{request.commit}"
+            )
+        else:
+            logger.error(
+                f"Failed to queue LaTeX compilation task: {latex_response.status_code}\n"
+                f"{latex_response.text[:500]}"
+            )
+    except Exception as e:
+        logger.error(f"Exception while requesting LaTeX compilation: {e}")
 
     return fastapi.responses.JSONResponse(
         content=public_model.AddProjectResponse(
@@ -122,7 +161,6 @@ async def internal_add_project(
         new_project.has_valid_dependencies = "valid" if request.is_valid else "invalid"  # type: ignore
 
         dependency_nodes: list[schema.Project] = []
-        subtasks = []
         to_index: list[public_model.ProjectInfo] = []
         for dependency in request.dependencies:
             node = schema.Project.nodes.get_or_none(
@@ -143,16 +181,20 @@ async def internal_add_project(
             new_project.dependencies.connect(dependency_node)  # type: ignore
 
     for dependency in to_index:
-        task = main_celery.clone_and_index_repository.delay(
-            dependency.repo_url, dependency.commit
+        logger.info(f"Requesting indexing for dependency {dependency.repo_url}@{dependency.commit}")
+        await httpx.AsyncClient().post(
+            url="http://dependency-service:8000/projects",
+            json=public_model.ProjectInfo(
+                repo_url=dependency.repo_url,
+                commit=dependency.commit,
+            ).model_dump(),
+            timeout=30,
         )
-        subtasks.append(task)
 
     return fastapi.responses.JSONResponse(
         content=public_model.AddDependencyResponse(
             success=True,
             message="Project and dependencies added successfully",
-            subtask_ids=[task.id for task in subtasks],
         ).model_dump(),
         status_code=202,
     )
@@ -190,7 +232,9 @@ async def internal_update_paper_status(
     request: public_model.UpdateStatusRequest,
 ) -> fastapi.Response:
     """Internal endpoint to update the LaTeX compilation status of a project."""
-    logger.info(f"Updating LaTeX compilation status for {request.repo_url}@{request.commit}")
+    logger.info(
+        f"Updating LaTeX compilation status for {request.repo_url}@{request.commit}"
+    )
 
     with neomodel.db.write_transaction:
         project: schema.Project = schema.Project.nodes.get_or_none(

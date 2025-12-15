@@ -4,7 +4,9 @@ import common.api.redis
 import celery
 import celery.utils.log
 import docker
+import httpx
 import model
+from common.dependency_service import public_model
 
 configure_logging()
 
@@ -77,6 +79,28 @@ def process_latex_task(task_data_raw: str) -> None:
                 redis_data = model.RedisTaskData(status=final_status, task_id=task_id)
                 redis_client.set(redis_key, redis_data.model_dump_json())
                 redis_client.expire(redis_key, 86400)  # Expire after 24 hours
+                
+                # Update status in dependency-service
+                status_request = public_model.UpdateStatusRequest(
+                    repo_url=task_data.repo_url,
+                    commit=task_data.commit_hash,
+                    has_valid_status=(exit_code == 0),
+                )
+                try:
+                    status_result = httpx.post(
+                        url="http://dependency-service:8000/internal/paper_status",
+                        json=status_request.model_dump(),
+                        timeout=30,
+                    )
+                    if status_result.is_success:
+                        logger.info(f"Updated paper status in dependency-service: {exit_code == 0}")
+                    else:
+                        logger.error(
+                            f"Failed to update paper status: {status_result.status_code}\n"
+                            f"{status_result.text[:500]}"
+                        )
+                except Exception as e:
+                    logger.error(f"Exception while updating paper status: {e}")
             except Exception as e:
                 logger.error(f"Failed to update Redis status: {e}")
             if container:

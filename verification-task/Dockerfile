@@ -21,4 +21,4 @@ COPY --from=common . ./common
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "app/main.py"]
+CMD ["python", "main.py"]
