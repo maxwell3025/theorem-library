@@ -1,0 +1,6 @@
+name = "nonexistent-dependency"
+version = "1.0.0"
+defaultTargets = ["NonexistentDep"]
+
+[[lean_lib]]
+name = "NonexistentDep"

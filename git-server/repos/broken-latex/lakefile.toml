@@ -1,0 +1,6 @@
+name = "broken-latex"
+version = "1.0.0"
+defaultTargets = ["BrokenLatex"]
+
+[[lean_lib]]
+name = "BrokenLatex"

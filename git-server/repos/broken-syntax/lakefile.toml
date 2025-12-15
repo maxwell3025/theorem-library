@@ -1,0 +1,6 @@
+name = "broken-syntax"
+version = "1.0.0"
+defaultTargets = ["BrokenSyntax"]
+
+[[lean_lib]]
+name = "BrokenSyntax"

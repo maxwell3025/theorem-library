@@ -1,0 +1,6 @@
+name = "calculus-basics"
+version = "1.0.0"
+defaultTargets = ["CalcBasics"]
+
+[[lean_lib]]
+name = "CalcBasics"

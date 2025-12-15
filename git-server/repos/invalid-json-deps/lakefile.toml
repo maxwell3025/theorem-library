@@ -1,0 +1,6 @@
+name = "invalid-json-deps"
+version = "1.0.0"
+defaultTargets = ["ValidCode"]
+
+[[lean_lib]]
+name = "ValidCode"

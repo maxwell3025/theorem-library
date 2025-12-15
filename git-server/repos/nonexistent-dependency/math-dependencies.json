@@ -1,0 +1,6 @@
+[
+  {
+    "git": "http://git-server:8000/this-repo-does-not-exist",
+    "commit": "COMMIT_FAKE"
+  }
+]

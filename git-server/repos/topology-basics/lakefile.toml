@@ -1,0 +1,6 @@
+name = "topology-basics"
+version = "1.0.0"
+defaultTargets = ["TopologyBasics"]
+
+[[lean_lib]]
+name = "TopologyBasics"

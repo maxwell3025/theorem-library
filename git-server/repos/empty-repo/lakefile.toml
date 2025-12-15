@@ -1,0 +1,6 @@
+name = "empty-repo"
+version = "1.0.0"
+defaultTargets = ["EmptyRepo"]
+
+[[lean_lib]]
+name = "EmptyRepo"

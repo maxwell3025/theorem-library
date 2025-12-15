@@ -1,0 +1,6 @@
+[
+  {
+    "git": "http://git-server:8000/circular-dep-b",
+    "commit": "COMMIT_CIRCULAR_DEP_B"
+  }
+]

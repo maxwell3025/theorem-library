@@ -1,0 +1,6 @@
+name = "malformed-toml"
+version = "1.0.0"
+defaultTargets = ["MalformedToml"
+
+[[lean_lib]]
+name = "MalformedToml"

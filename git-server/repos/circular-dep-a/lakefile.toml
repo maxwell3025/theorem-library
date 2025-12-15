@@ -1,0 +1,6 @@
+name = "circular-dep-a"
+version = "1.0.0"
+defaultTargets = ["CircularA"]
+
+[[lean_lib]]
+name = "CircularA"
