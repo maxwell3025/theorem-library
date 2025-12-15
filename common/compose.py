@@ -93,7 +93,10 @@ class DockerComposeConfig(ComposeSpecification):
                 "NEO4J_USER=${NEO4J_USER}",
                 "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
             ],
-            depends_on={"neo4j": {"condition": Condition.service_healthy}},
+            depends_on={
+                "neo4j": {"condition": Condition.service_healthy},
+                "dependency-worker": {"condition": Condition.service_healthy},
+            },
         ),
         "dependency-worker": ServiceWithDefaults(
             build=BuildItemWithDefaults(
@@ -116,7 +119,6 @@ class DockerComposeConfig(ComposeSpecification):
             ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
-                "neo4j": {"condition": Condition.service_healthy},
             },
             restart="unless-stopped",
             healthcheck=HealthcheckWithDefaults(
@@ -200,6 +202,14 @@ class DockerComposeConfig(ComposeSpecification):
             ports=["8003:8000"],
             volumes=["pdf_data:/data"],
         ),
+        "latex-redis": ServiceWithDefaults(
+            image="redis:7-alpine",
+            container_name="latex-redis",
+            ports=["8015:6379"],
+            healthcheck=HealthcheckWithDefaults(
+                test=["CMD", "redis-cli", "ping"],
+            ),
+        ),
         "latex-service": ServiceWithDefaults(
             build=BuildItemWithDefaults(
                 context="./latex-service",
@@ -209,7 +219,7 @@ class DockerComposeConfig(ComposeSpecification):
             ports=["8004:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
-                "verification-redis": {"condition": Condition.service_healthy},
+                "latex-redis": {"condition": Condition.service_healthy},
             },
         ),
         "latex-worker": ServiceWithDefaults(
@@ -229,7 +239,7 @@ class DockerComposeConfig(ComposeSpecification):
             ports=["8013:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
-                "verification-redis": {"condition": Condition.service_healthy},
+                "latex-redis": {"condition": Condition.service_healthy},
             },
             restart="unless-stopped",
             healthcheck=HealthcheckWithDefaults(

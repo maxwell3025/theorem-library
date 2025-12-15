@@ -15,6 +15,8 @@ services:
       dockerfile: Dockerfile
     container_name: dependency-service
     depends_on:
+      dependency-worker:
+        condition: service_healthy
       neo4j:
         condition: service_healthy
     environment:
@@ -70,8 +72,6 @@ services:
     - dependency
     container_name: dependency-worker
     depends_on:
-      neo4j:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
@@ -119,6 +119,23 @@ services:
     ports:
     - 8005:8000
     restart: unless-stopped
+  latex-redis:
+    container_name: latex-redis
+    healthcheck:
+      interval: 1s
+      retries: 10
+      start_period: 1s
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      timeout: 1s
+    image: redis:7-alpine
+    networks:
+    - theorem-library
+    ports:
+    - 8015:6379
+    restart: unless-stopped
   latex-service:
     build:
       additional_contexts:
@@ -130,9 +147,9 @@ services:
     - main.py
     container_name: latex-service
     depends_on:
-      rabbitmq:
+      latex-redis:
         condition: service_healthy
-      verification-redis:
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       interval: 1s
@@ -184,9 +201,9 @@ services:
     - latex
     container_name: latex-worker
     depends_on:
-      rabbitmq:
+      latex-redis:
         condition: service_healthy
-      verification-redis:
+      rabbitmq:
         condition: service_healthy
     healthcheck:
       interval: 1s
