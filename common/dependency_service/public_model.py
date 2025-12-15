@@ -27,6 +27,7 @@ class DependencyListResponse(BaseModel):
     has_valid_dependencies: typing.Literal["valid", "invalid", "unknown"]
     has_valid_proof: typing.Literal["valid", "invalid", "unknown"]
     has_valid_paper: typing.Literal["valid", "invalid", "unknown"]
+    paper_url: str
 
 
 class UpdateStatusRequest(BaseModel):

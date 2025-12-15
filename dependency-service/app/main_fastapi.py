@@ -1,3 +1,4 @@
+import base64
 import sys
 import fastapi
 import logging
@@ -303,6 +304,7 @@ async def get_project_dependencies(
                 has_valid_dependencies=result[0]["has_valid_dependencies"],
                 has_valid_proof=result[0]["has_valid_proof"],
                 has_valid_paper=result[0]["has_valid_paper"],
+                paper_url=f"pdf-service/{base64.urlsafe_b64encode(result[0]['repo_url'].encode()).decode()}/{result[0]['commit']}/main.pdf",
             )
             for result in rows
         ]
