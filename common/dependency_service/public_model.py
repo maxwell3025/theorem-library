@@ -21,6 +21,20 @@ class ProjectInfo(BaseModel):
     commit: str = Field(..., description="Commit hash")
 
 
+class DependencyListResponse(BaseModel):
+    repo_url: str
+    commit: str
+    has_valid_dependencies: typing.Literal["valid", "invalid", "unknown"]
+    has_valid_proof: typing.Literal["valid", "invalid", "unknown"]
+    has_valid_paper: typing.Literal["valid", "invalid", "unknown"]
+
+
+class UpdateStatusRequest(BaseModel):
+    repo_url: str
+    commit: str
+    has_valid_status: bool
+
+
 class DependencyInfo(BaseModel):
     """Information about a dependency relationship."""
 
@@ -29,11 +43,14 @@ class DependencyInfo(BaseModel):
     dependency_repo: str = Field(..., description="Dependency git URL")
     dependency_commit: str = Field(..., description="Dependency commit hash")
 
+
 class AddProjectInternalRequest(BaseModel):
     """Information about a dependency relationship."""
+
     source: ProjectInfo
     dependencies: typing.List[ProjectInfo]
     is_valid: bool
+
 
 class AddDependencyResponse(BaseModel):
     """Response from adding a dependency."""

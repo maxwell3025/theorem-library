@@ -21,16 +21,17 @@ configure_logging()
 logger = logging.getLogger("dependency-service")
 
 # Neo4j connection parameters
-NEO4J_USER: str = os.getenv("NEO4J_USER") # type: ignore
+NEO4J_USER: str = os.getenv("NEO4J_USER")  # type: ignore
 if NEO4J_USER is None:
     raise ValueError("NEO4J_USER environment variable is not set")
-NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD") # type: ignore
+NEO4J_PASSWORD: str = os.getenv("NEO4J_PASSWORD")  # type: ignore
 if NEO4J_PASSWORD is None:
     raise ValueError("NEO4J_PASSWORD environment variable is not set")
 
 NEO4J_HOST = config.neo4j.host
 NEO4J_BOLT_PORT = config.neo4j.bolt_port
 NEO4J_URI = f"bolt://{NEO4J_USER}:{NEO4J_PASSWORD}@{NEO4J_HOST}:{NEO4J_BOLT_PORT}"
+
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
@@ -40,10 +41,10 @@ async def lifespan(app: fastapi.FastAPI):
     logger.info("Connected to Neo4j and ensured all labels are installed.")
     yield
 
+
 app = fastapi.FastAPI(lifespan=lifespan)
 
 app.add_middleware(common.middleware.CorrelationIdMiddleware)
-
 
 
 @app.get("/health", response_model=public_model.HealthCheckResponse)
@@ -71,6 +72,18 @@ async def health_check() -> fastapi.Response:
 async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
     """Add a project by cloning its repository at a specific commit and indexing dependencies."""
     logger.info(f"Received request to add project {request.repo_url}@{request.commit}")
+
+    # Ensure the project exists in the database
+    with neomodel.db.write_transaction:
+        new_project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+        if new_project is None:
+            new_project = schema.Project(
+                repo_url=request.repo_url,
+                commit=request.commit,
+            )
 
     # Queue the Celery task
     task = main_celery.clone_and_index_repository.delay(
@@ -105,8 +118,8 @@ async def internal_add_project(
             new_project = schema.Project(
                 repo_url=request.source.repo_url,
                 commit=request.source.commit,
-                has_valid_dependencies=request.is_valid,
             )
+        new_project.has_valid_dependencies = "valid" if request.is_valid else "invalid"  # type: ignore
 
         dependency_nodes: list[schema.Project] = []
         subtasks = []
@@ -145,6 +158,60 @@ async def internal_add_project(
     )
 
 
+@app.post("/internal/verification_status")
+async def internal_update_verification_status(
+    request: public_model.UpdateStatusRequest,
+) -> fastapi.Response:
+    """Internal endpoint to update the verification status of a project."""
+    logger.info(f"Updating verification status for {request.repo_url}@{request.commit}")
+
+    with neomodel.db.write_transaction:
+        project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+        if project is None:
+            return fastapi.responses.JSONResponse(
+                content={"error": "Project not found"},
+                status_code=404,
+            )
+
+        project.has_valid_proof = "valid" if request.has_valid_status else "invalid"  # type: ignore
+        project.save()
+
+    return fastapi.responses.JSONResponse(
+        content={"message": "Verification status updated successfully"},
+        status_code=200,
+    )
+
+
+@app.post("/internal/paper_status")
+async def internal_update_paper_status(
+    request: public_model.UpdateStatusRequest,
+) -> fastapi.Response:
+    """Internal endpoint to update the LaTeX compilation status of a project."""
+    logger.info(f"Updating LaTeX compilation status for {request.repo_url}@{request.commit}")
+
+    with neomodel.db.write_transaction:
+        project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+        if project is None:
+            return fastapi.responses.JSONResponse(
+                content={"error": "Project not found"},
+                status_code=404,
+            )
+
+        project.has_valid_paper = "valid" if request.has_valid_status else "invalid"  # type: ignore
+        project.save()
+
+    return fastapi.responses.JSONResponse(
+        content={"message": "LaTeX compilation status updated successfully"},
+        status_code=200,
+    )
+
+
 @app.get("/projects")
 async def list_projects() -> typing.List[public_model.ProjectInfo]:
     """List all projects in the database."""
@@ -167,33 +234,33 @@ async def list_projects() -> typing.List[public_model.ProjectInfo]:
         return projects
 
 
-@app.get("/projects/{repo_url:path}/{commit}/dependencies")
+@app.get("/projects/dependencies")
 async def get_project_dependencies(
-    repo_url: str, commit: str
-) -> typing.List[public_model.DependencyInfo]:
+    project: public_model.ProjectInfo,
+) -> typing.List[public_model.DependencyListResponse]:
     """Get all dependencies for a specific project."""
-    logger.info(f"GET dependencies - repo_url='{repo_url}', commit='{commit}'")
-    with GraphDatabase.driver(
-        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
-    ) as driver, driver.session() as session:
-        result = session.run(
+    logger.info(
+        f"GET dependencies - repo_url='{project.repo_url}', commit='{project.commit}'"
+    )
+    with neomodel.db.read_transaction:
+        rows, headers = neomodel.db.cypher_query(
             """
-            MATCH (p:Project {repo_url: $repo_url, commit: $commit})-[:DEPENDS_ON]->(d:Project)
-            RETURN p.repo_url as source_repo, p.commit as source_commit, 
-                   d.repo_url as dependency_repo, d.commit as dependency_commit
+            MATCH (p:Project {repo_url: $repo_url, commit: $commit})-[:DEPENDS_ON*]->(d:Project)
+            RETURN properties(d) as dependencies
             ORDER BY d.repo_url, d.commit
             """,
-            repo_url=repo_url,
-            commit=commit,
+            params=project.model_dump(),
         )
+        logger.info(f"Query result: {rows}")
         dependencies = [
-            public_model.DependencyInfo(
-                source_repo=record["source_repo"],
-                source_commit=record["source_commit"],
-                dependency_repo=record["dependency_repo"],
-                dependency_commit=record["dependency_commit"],
+            public_model.DependencyListResponse(
+                repo_url=result[0]["repo_url"],
+                commit=result[0]["commit"],
+                has_valid_dependencies=result[0]["has_valid_dependencies"],
+                has_valid_proof=result[0]["has_valid_proof"],
+                has_valid_paper=result[0]["has_valid_paper"],
             )
-            for record in result
+            for result in rows
         ]
         return dependencies
 
