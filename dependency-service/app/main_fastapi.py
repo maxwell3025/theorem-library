@@ -290,9 +290,8 @@ async def get_project_dependencies(
     with neomodel.db.read_transaction:
         rows, headers = neomodel.db.cypher_query(
             """
-            MATCH (p:Project {repo_url: $repo_url, commit: $commit})-[:DEPENDS_ON*]->(d:Project)
-            RETURN properties(d) as dependencies
-            ORDER BY d.repo_url, d.commit
+            MATCH (p:Project {repo_url: $repo_url, commit: $commit})-[:DEPENDS_ON*0..]->(d:Project)
+            RETURN DISTINCT properties(d) as dependencies
             """,
             params=project.model_dump(),
         )
