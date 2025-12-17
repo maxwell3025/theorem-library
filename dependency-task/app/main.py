@@ -34,7 +34,6 @@ logger = logging.getLogger("dependency-task")
 SECONDS_PER_MINUTE = 60
 
 
-
 def clone_repository(repo_url: str, commit_hash: str, work_dir: Path) -> bool:
     """Clone a Git repository at a specific commit."""
     logger.info(f"Cloning repository {repo_url} at commit {commit_hash}")
@@ -166,7 +165,6 @@ def parse_dependencies_from_repo(
     return dependencies
 
 
-
 def main() -> int:
     """Main entry point for the dependency task."""
     logger.info("Dependency task starting")
@@ -192,7 +190,9 @@ def main() -> int:
 
         # Step 2: Parse and validate dependencies
         try:
-            dependencies = parse_dependencies_from_repo(repo_path, repo_url, commit_hash)
+            dependencies = parse_dependencies_from_repo(
+                repo_path, repo_url, commit_hash
+            )
             logger.info(f"Found and validated {len(dependencies)} dependencies")
         except (FileNotFoundError, ValueError) as e:
             logger.error(f"Failed to parse dependencies: {e}")
@@ -214,7 +214,9 @@ def main() -> int:
         )
 
     if post_result.is_success:
-        logger.info(f"Dependency task completed successfully and queued {len(dependencies)} dependencies.")
+        logger.info(
+            f"Dependency task completed successfully and queued {len(dependencies)} dependencies."
+        )
         return 0
     return 1
 

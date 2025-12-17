@@ -20,7 +20,7 @@ services:
         condition: service_healthy
     deploy:
       mode: replicated
-      replicas: 10
+      replicas: 1
     environment:
     - NEO4J_USER=${NEO4J_USER}
     - NEO4J_PASSWORD=${NEO4J_PASSWORD}
@@ -70,9 +70,14 @@ services:
     - --loglevel=info
     - -Q
     - dependency
+    - -c
+    - '1'
     depends_on:
       rabbitmq:
         condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 2
     environment:
     - NEO4J_USER=${NEO4J_USER}
     - NEO4J_PASSWORD=${NEO4J_PASSWORD}
@@ -189,6 +194,8 @@ services:
     - --loglevel=info
     - -Q
     - latex
+    - -c
+    - '1'
     depends_on:
       latex-redis:
         condition: service_healthy
@@ -297,6 +304,7 @@ services:
     restart: unless-stopped
     volumes:
     - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
   verification-redis:
     healthcheck:
       interval: 1s
@@ -373,6 +381,8 @@ services:
     - --loglevel=info
     - -Q
     - verification
+    - -c
+    - '1'
     depends_on:
       rabbitmq:
         condition: service_healthy

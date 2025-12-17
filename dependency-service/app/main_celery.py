@@ -78,9 +78,7 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
         # Wait for the container to complete
         wait_result = container.wait()
         exit_code = wait_result.get("StatusCode", -1)
-        logger.info(
-            f"Dependency task container completed with exit code: {exit_code}"
-        )
+        logger.info(f"Dependency task container completed with exit code: {exit_code}")
 
         logs = container.logs().decode("utf-8")
         logger.info(f"Dependency task logs:\n{logs}")

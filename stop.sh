@@ -12,4 +12,4 @@ python -m scripts.generate_env
 
 python -m scripts.generate_compose
 
-docker compose down --rmi all --volumes --remove-orphans
+docker compose down --volumes --remove-orphans

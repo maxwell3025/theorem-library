@@ -96,7 +96,7 @@ class DockerComposeConfig(ComposeSpecification):
             },
             deploy={
                 "mode": "replicated",
-                "replicas": 10,
+                "replicas": 1,
             },
         ),
         "dependency-worker": ServiceWithDefaults(
@@ -111,6 +111,8 @@ class DockerComposeConfig(ComposeSpecification):
                 "--loglevel=info",
                 "-Q",
                 "dependency",
+                "-c",
+                f"{config.concurrent_tasks_per_worker}",
             ],
             environment=[
                 "NEO4J_USER=${NEO4J_USER}",
@@ -124,6 +126,10 @@ class DockerComposeConfig(ComposeSpecification):
                 test=["CMD", "celery", "--app", "main_celery", "inspect", "ping"],
                 timeout="2s",
             ),
+            deploy={
+                "mode": "replicated",
+                "replicas": 2,
+            },
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],
         ),
         "dependency-task": ServiceWithDefaults(
@@ -161,6 +167,8 @@ class DockerComposeConfig(ComposeSpecification):
                 "--loglevel=info",
                 "-Q",
                 "verification",
+                "-c",
+                f"{config.concurrent_tasks_per_worker}",
             ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
@@ -181,7 +189,10 @@ class DockerComposeConfig(ComposeSpecification):
         ),
         "rabbitmq": ServiceWithDefaults(
             image="rabbitmq:4-management",
-            volumes=["./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"],
+            volumes=[
+                "./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro",
+                "./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro",
+            ],
             ports=["8006:5672", "8007:15672"],
             healthcheck=HealthcheckWithDefaults(
                 test=["CMD", "rabbitmq-diagnostics", "-q", "ping"],
@@ -222,6 +233,8 @@ class DockerComposeConfig(ComposeSpecification):
                 "--loglevel=info",
                 "-Q",
                 "latex",
+                "-c",
+                f"{config.concurrent_tasks_per_worker}",
             ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},

@@ -123,7 +123,6 @@ def main():
         # Verify Lean proof
         verification_success, verification_output = verify_lean_proof(work_dir)
 
-
         if verification_success:
             logger.info("Verification completed successfully")
             sys.exit(0)

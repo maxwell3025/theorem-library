@@ -1,0 +1,35 @@
+{
+    "users": [
+        {
+            "name": "guest",
+            "password": "guest",
+            "tags": "administrator"
+        }
+    ],
+    "vhosts": [
+        {
+            "name": "/"
+        }
+    ],
+    "permissions": [
+        {
+            "user": "guest",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+        }
+    ],
+    "policies": [
+        {
+            "vhost": "/",
+            "name": "max-queue-length",
+            "pattern": ".*",
+            "apply-to": "queues",
+            "definition": {
+                "max-length": 2,
+                "overflow": "reject-publish"
+            }
+        }
+    ]
+}

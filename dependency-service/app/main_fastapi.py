@@ -178,7 +178,9 @@ async def internal_add_project(
             new_project.dependencies.connect(dependency_node)  # type: ignore
 
     for dependency in to_index:
-        logger.info(f"Requesting indexing for dependency {dependency.repo_url}@{dependency.commit}")
+        logger.info(
+            f"Requesting indexing for dependency {dependency.repo_url}@{dependency.commit}"
+        )
         await httpx.AsyncClient().post(
             url="http://dependency-service:8000/projects",
             json=public_model.ProjectInfo(

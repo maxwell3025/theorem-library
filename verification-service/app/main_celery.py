@@ -81,7 +81,7 @@ def process_verification_task(task_data_raw: str) -> None:
                 redis_data = model.RedisTaskData(status=final_status, task_id=task_id)
                 redis_client.set(redis_key, redis_data.model_dump_json())
                 redis_client.expire(redis_key, 86400)  # Expire after 24 hours
-                
+
                 # Update status in dependency-service
                 status_request = public_model.UpdateStatusRequest(
                     repo_url=task_data.repo_url,
@@ -95,7 +95,9 @@ def process_verification_task(task_data_raw: str) -> None:
                         timeout=30,
                     )
                     if status_result.is_success:
-                        logger.info(f"Updated verification status in dependency-service: {exit_code == 0}")
+                        logger.info(
+                            f"Updated verification status in dependency-service: {exit_code == 0}"
+                        )
                     else:
                         logger.error(
                             f"Failed to update verification status: {status_result.status_code}\n"

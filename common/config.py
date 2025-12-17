@@ -45,6 +45,7 @@ class AppConfig(BaseModel):
     """Global application configuration."""
 
     project_name: str = "theorem-library"
+    concurrent_tasks_per_worker: int = 1
     neo4j: Neo4jConfig = Neo4jConfig()
     verification_config: VerificationConfig = VerificationConfig()
     latex_config: LaTeXConfig = LaTeXConfig()
