@@ -78,9 +78,6 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-    environment:
-    - NEO4J_USER=${NEO4J_USER}
-    - NEO4J_PASSWORD=${NEO4J_PASSWORD}
     healthcheck:
       interval: 1s
       retries: 10
