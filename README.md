@@ -1,427 +1,118 @@
-# theorem-library
-Created as a project for COMPSCI 426
+# Theorem Library
+## Requirements
+You must have Docker, Docker Compose, and Python (tested for Python 3.11.4).
+You should also be running this in a Unix-like environment, which Docker requires.
 
-## Project Title and Description
-This system is a library of formally verified mathematical proofs alongside human-readable proofs.
-Importantly, unlike a package manager, this is focused on the human-level dependencies, unlike the package managers for formal verification languages, which focus on software dependencies.
-For instance, a dependency for managing language constructs would not be considered a dependency here, since it is not a feature of the proof, but rather the way that it was formalized.
+In particular, you should have the Docker Compose plugin, which allows you to run `docker compose` instead of `docker-compose`.
 
-This system manages proofs using Git commits containing Lean 4 packages with additional folders and files to add human-level dependency and documentation.
-The system provices a REST API for running Lean 4 on the proofs to formally verify them, running LaTeX to build the human-readable proofs, and querying the dependency graph to find out whether any given proof is itself verified, whether it has a fully verified network of dependencies, and how many proofs depend on it.
-
-## Architecture Overview
-![Architecture Diagram](figures/architecture_diagram.png)
-
-This program uses a microservices architectecture.
-The services are currently mapped to host ports `8000`-`8004`(inclusive).
-In particular, there are 4 systems:
-
-### Dependency Service
-This service is responsible for managing dependency data and exposing analytics queries on this dependency data.
-For instance, users will be able to query a list of proofs that any given proof depends on.
-This service will pull only `lakefile.toml`, and `math-dependencies.json` from the Git repository to validate it and add all of the metadata to the database.
-For almost all of its functionaltiy, this service can function independently, since it only makes queries to the database.
-
-#### Dependencies
-- This service depends on the database.
-
-### Verification Service
-This service is responsible for managing Lean 4 test runs and queuing up those runs.
-This is a separate service because compiling and running Lean 4 packages is a slow task that should be able to scale independently.
-This will also asynchronously update the Lean status of each Git repo/commit pair in the database.
-
-#### Dependencies
-- This service depends on the database.
-
-### PDF Server
-This service handles storing and serving PDF documents containing the human readable proofs.
-This is separate from the other services since large file transfers are a large workload that shouldn't interfere with (comparatively) quick tasks like querying the database.
-
-#### Dependencies
-- No dependencies.
-
-### LaTeX Service
-This service compiles LaTeX files and handles queueing of LaTeX jobs.
-This is a separate service because compiling LaTeX projects is a slow task that should be able to scale independently.
-This will also asynchronously update the LaTeX status of each Git repo/commit pair in the database.
-
-#### Dependencies
-- This service depends on the database.
-- This service depends on the PDF Server.
-
-## Prerequisites
-This project requires the following software to be present on the host:
-- Docker
-- Docker Compose
-- Python 3.11 (for development)
-- curl (for testing)
-- jq (for testing)
-
-## Installation & Setup
-I am on Linux, so I am using the Docker Compose plugin.
-If you are using the standalone version, replace all instances of `docker compose` with
-`docker-compse`.
-
-First, change directories into the root of the project.
-To verify that you are in the right folder, run the following command:
+As an optional dependency
+## How to run
+Create a virtual Python environment in `./venv` and activate it
 ```bash
-ls
-```
-This should list at least the following files and folders:
-```
-common
-dependency-service
-docker-compose.yml
-figures
-latex-service
-LICENSE
-pdf-service
-README.md
-verification-service
+python3 -m venv venv
+. venv/bin/activate
 ```
 
-Next, populate `.env`
+Then, install all of the dev requirements
 ```bash
-NEO4J_USER=neo4j
-NEO4J_PASSWORD="<insert password>"
+pip install -r requirements-dev.txt
 ```
-Next, to run the system, run the following command:
+
+Then, populate `.env` according to `.env.example` (directly copying should work for testing, but set secure passwords in prod).
+
+Run the start script, which generates `docker-compose.yml` and runs Docker Compose.
 ```bash
-docker compose up --build -d
+./start.sh >/dev/null 2>&1 &
 ```
 
-To stop the system, run the following command:
+To test the commands, first query `git/repositories` to get a list of urls and commits.
 ```bash
-docker compose stop
-docker compose down
+curl http://localhost/git/repositories | jq
 ```
 
-## Usage Instructions
-Currently, the only way to use the system is by running healthchecks.
-### Neo4j Browser
-Access the Neo4j Browser dashboard at:
-```
-http://localhost:8000
-```
-Login with the credentials from your `.env` file (NEO4J_USER and NEO4J_PASSWORD).
-
-### Neo4j Health Check
-```bash
-curl -X GET localhost:8001/health | jq '.dependencies.neo4j'
-# Example response (from dependency service which checks Neo4j):
-# {
-#   "status": "healthy",
-#   "response_time_ms": 5
-# }
-```
-
-### Dependency Service
-```bash
-curl -X GET localhost:8001/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "dependency-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
-```
-
-### Verification Service
-```bash
-curl -X GET localhost:8002/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "verification-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
-```
-
-### PDF Service
-```bash
-curl -X GET localhost:8003/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "pdf-service",
-#   "dependencies": {}
-# }
-```
-
-### LaTeX Service
-```bash
-curl -X GET localhost:8004/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "latex-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     },
-#     "pdf-service": {
-#       "status": "healthy",
-#       "response_time_ms": 1
-#     }
-#   }
-# }
-```
-
-
-## API Documentation
-### Dependency Service
-#### `GET /health`
-##### Request
-Body should be empty
-
-##### Response
-Will have status code `200` if healthy and `503` if unhealthy
-Will have a body with shape
+Make sure that the output includes the following repositories
 ```json
 {
-  "service": "dependency-service",
-  "status": "healthy|unhealthy",
-  "dependencies": {
-    "neo4j": {
-      "status": "healthy|unhealthy|timeout",
-      "response_time_ms?": "int"
-    }
-  }
-}
-```
-Where
-- `service` is the name of the service,
-- `status` is either `"healthy"` or `"unhealthy"` depending on if the service is healthy or not
-- `dependencies` is a dictionary of services that this service depends on with the following healthcheck information:
-  - `dependencies[x].status` is `"healthy"`, `"unhealthy"`, or `"timeout"` depending on if the service is healthy or not and if the request was successful.
-  - `dependencies[x].response_time_ms` is only present if `status` is `"healthy"` or `"unhealthy"`, and it is the integer number of milliseconds that the response took.
-
-
-##### Example
-```bash
-curl -X GET localhost:8001/health | jq
-# {
-#   "status": "healthy",
-#   "service": "dependency-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
-```
-
-### Verification Service
-#### `GET /health`
-##### Request
-Body should be empty
-
-##### Response
-Will have status code `200` if healthy and `503` if unhealthy
-Will have a body with shape
-```json
-{
-  "service": "verification-service",
-  "status": "healthy|unhealthy",
-  "dependencies": {
-    "neo4j": {
-      "status": "healthy|unhealthy|timeout",
-      "response_time_ms?": "int"
-    }
-  }
-}
-```
-Where
-- `service` is the name of the service,
-- `status` is either `"healthy"` or `"unhealthy"` depending on if the service is healthy or not
-- `dependencies` is a dictionary of services that this service depends on with the following healthcheck information:
-  - `dependencies[x].status` is `"healthy"`, `"unhealthy"`, or `"timeout"` depending on if the service is healthy or not and if the request was successful.
-  - `dependencies[x].response_time_ms` is only present if `status` is `"healthy"` or `"unhealthy"`, and it is the integer number of milliseconds that the response took.
-
-##### Example
-```bash
-curl -X GET localhost:8002/health | jq
-# {
-#   "status": "healthy",
-#   "service": "verification-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
-```
-
-### PDF Service
-##### Request
-Body should be empty
-
-##### Response
-Will have status code `200` if healthy and `503` if unhealthy
-Will have a body with shape
-```json
-{
-  "service": "dependency-service",
-  "status": "healthy|unhealthy",
-  "dependencies": {}
-}
-```
-Where
-- `service` is the name of the service,
-- `status` is either `"healthy"` or `"unhealthy"` depending on if the service is healthy or not
-Note that `dependencies` is an empty object since this service has no dependencies
-
-##### Example
-#### `GET /health`
-```bash
-curl -X GET localhost:8003/health | jq
-# {
-#   "status": "healthy",
-#   "service": "pdf-service",
-#   "dependencies": {}
-# }
-```
-
-### LaTeX Service
-#### `GET /health`
-##### Request
-Body should be empty
-
-##### Response
-Will have status code `200` if healthy and `503` if unhealthy
-Will have a body with shape
-```json
-{
-  "service": "dependency-service",
-  "status": "healthy|unhealthy",
-  "dependencies": {
-    "neo4j": {
-      "status": "healthy|unhealthy|timeout",
-      "response_time_ms?": "int"
+  "repositories": [
+    {
+      "name": "advanced-proofs",
+      "url": "http://git-server:8000/advanced-proofs",
+      "commit": "9c4a2f3ad74c41cddc0697cdd11e6774df7fc801"
     },
-    "pdf-service": {
-      "status": "healthy|unhealthy|timeout",
-      "response_time_ms?": "int"
+    {
+      "name": "algebra-theorems",
+      "url": "http://git-server:8000/algebra-theorems",
+      "commit": "07515b8535b53ba1710d4ecaae13bdef1a2ba57c"
+    },
+    {
+      "name": "base-math",
+      "url": "http://git-server:8000/base-math",
+      "commit": "a6f3851e8058a375451a17cd475e968ac1c2024f"
     }
-  }
+  ]
 }
 ```
-Where
-- `service` is the name of the service,
-- `status` is either `"healthy"` or `"unhealthy"` depending on if the service is healthy or not
-- `dependencies` is a dictionary of services that this service depends on with the following healthcheck information:
-  - `dependencies[x].status` is `"healthy"`, `"unhealthy"`, or `"timeout"` depending on if the service is healthy or not and if the request was successful.
-  - `dependencies[x].response_time_ms` is only present if `status` is `"healthy"` or `"unhealthy"`, and it is the integer number of milliseconds that the response took.
+The commit hashes should be the same, but if they differ, modify the commit hashes in the test commands to match your output.
 
-##### Example
+Now, we can test the commands.
+
+Post a project:
 ```bash
-curl -X GET localhost:8004/health | jq
-# {
-#   "status": "healthy",
-#   "service": "latex-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     },
-#     "pdf-service": {
-#       "status": "healthy",
-#       "response_time_ms": 1
-#     }
-#   }
-# }
+curl http://localhost/dependency-service/projects -X POST -d '{"repo_url":"http://git-server:8000/advanced-proofs","commit":"9c4a2f3ad74c41cddc0697cdd11e6774df7fc801"}' -H "Content-Type: application/json" | jq
+```
+We expect this to succeed, since the repo shouldn't be indexed yet
+```json
+{
+  "task_id": "333b1ab9-1a34-49cb-9e3c-57ce49473a3a",
+  "status": "queued"
+}
+```
+This will download and compile both the formal proof and the paper in the project.
+
+Get the info for that project:
+```bash
+curl http://localhost/dependency-service/projects -X GET -d '{"repo_url":"http://git-server:8000/advanced-proofs","commit":"9c4a2f3ad74c41cddc0697cdd11e6774df7fc801"}' -H "Content-Type: application/json" | jq
+```
+This should return a dictionary of statuses and a url fragment for the paper download
+```json
+{
+  "repo_url": "http://git-server:8000/advanced-proofs",
+  "commit": "9c4a2f3ad74c41cddc0697cdd11e6774df7fc801",
+  "has_valid_dependencies": "valid",
+  "has_valid_proof": "valid",
+  "has_valid_paper": "valid",
+  "paper_url": "pdf-service/aHR0cDovL2dpdC1zZXJ2ZXI6ODAwMC9hZHZhbmNlZC1wcm9vZnM=/9c4a2f3ad74c41cddc0697cdd11e6774df7fc801/main.pdf"
+}
 ```
 
-## Testing
-To test the health of each of the services, run the following commands in Bash:
-### Postgres
+Based on the previous `paper_url`, download the compiled paper
 ```bash
-pg_isready -h localhost -p 8000
-# Example response:
-# localhost:8000 - accepting connections
+wget http://localhost/pdf-service/aHR0cDovL2dpdC1zZXJ2ZXI6ODAwMC9hZHZhbmNlZC1wcm9vZnM=/9c4a2f3ad74c41cddc0697cdd11e6774df7fc801/main.pdf
 ```
+`./main.pdf` should now have the paper.
 
-### Dependency Service
+Get a list of transitive dependencies for the project:
 ```bash
-curl -X GET localhost:8001/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "dependency-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
+curl http://localhost/dependency-service/projects/dependencies -X GET -d '{"repo_url":"http://git-server:8000/advanced-proofs","commit":"9c4a2f3ad74c41cddc0697cdd11e6774df7fc801"}' -H "Content-Type: application/json" | jq
 ```
+This should list 3 projects.
 
-### Verification Service
+List all projects
 ```bash
-curl -X GET localhost:8002/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "verification-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     }
-#   }
-# }
+curl http://localhost/dependency-service/projects/all -X GET | jq
 ```
+This should list 3 projects.
 
-### PDF Service
+Delete the project:
 ```bash
-curl -X GET localhost:8003/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "pdf-service",
-#   "dependencies": {}
-# }
+curl http://localhost/dependency-service/projects -X DELETE -d '{"repo_url":"http://git-server:8000/advanced-proofs","commit":"9c4a2f3ad74c41cddc0697cdd11e6774df7fc801"}' -H "Content-Type: application/json" | jq
 ```
+This should succeed.
 
-### LaTeX Service
+List all projects
 ```bash
-curl -X GET localhost:8004/health | jq
-# Example response:
-# {
-#   "status": "healthy",
-#   "service": "latex-service",
-#   "dependencies": {
-#     "neo4j": {
-#       "status": "healthy",
-#       "response_time_ms": 4
-#     },
-#     "pdf-service": {
-#       "status": "healthy",
-#       "response_time_ms": 1
-#     }
-#   }
-# }
+curl http://localhost/dependency-service/projects/all -X GET | jq
 ```
+This should now list 2 projects, since we deleted one.
 
-## Project Structure
-Each service is organized into its own subfolder.
-These are:
-- `dependency-service`
-- `latex-service`
-- `pdf-service`
-- `verification-service`
-In addition, the folder `common` contains a common library used by all services.
+**Note:** There are tests in `test`, but these are outdated and may not succeed.

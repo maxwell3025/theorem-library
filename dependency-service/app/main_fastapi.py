@@ -1,5 +1,4 @@
 import base64
-import sys
 import fastapi
 import logging
 from common.dependency_service import public_model
@@ -12,7 +11,6 @@ import typing
 import uvicorn
 import os
 import httpx
-from neo4j import GraphDatabase
 from common.config import config
 from common.dependency_service import schema
 import neomodel
@@ -90,20 +88,11 @@ async def queue_project(request: public_model.ProjectInfo) -> fastapi.Response:
 
     # Request verification service to verify the proofs
     try:
-        verification_response = httpx.post(
+        httpx.post(
             url="http://verification-service:8000/run",
             json={"repo_url": request.repo_url, "commit_hash": request.commit},
             timeout=30,
-        )
-        if verification_response.is_success:
-            logger.info(
-                f"Queued verification task for {request.repo_url}@{request.commit}"
-            )
-        else:
-            logger.error(
-                f"Failed to queue verification task: {verification_response.status_code}\n"
-                f"{verification_response.text[:500]}"
-            )
+        ).raise_for_status()
     except Exception as e:
         logger.error(f"Exception while requesting verification: {e}")
         return fastapi.responses.JSONResponse(
@@ -116,20 +105,11 @@ async def queue_project(request: public_model.ProjectInfo) -> fastapi.Response:
 
     # Request latex service to compile the paper
     try:
-        latex_response = httpx.post(
+        httpx.post(
             url="http://latex-service:8000/run",
             json={"repo_url": request.repo_url, "commit_hash": request.commit},
             timeout=30,
-        )
-        if latex_response.is_success:
-            logger.info(
-                f"Queued LaTeX compilation task for {request.repo_url}@{request.commit}"
-            )
-        else:
-            logger.error(
-                f"Failed to queue LaTeX compilation task: {latex_response.status_code}\n"
-                f"{latex_response.text[:500]}"
-            )
+        ).raise_for_status()
     except Exception as e:
         logger.error(f"Exception while requesting LaTeX compilation: {e}")
         return fastapi.responses.JSONResponse(
@@ -389,23 +369,20 @@ async def internal_update_paper_status(
 
 
 @app.get("/projects/all")
-async def list_projects() -> typing.List[public_model.ProjectInfo]:
+async def list_projects() -> typing.List[public_model.DependencyListResponse]:
     """List all projects in the database."""
-    with GraphDatabase.driver(
-        NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD)
-    ) as driver, driver.session() as session:
-        result = session.run(
-            """
-            MATCH (p:Project)
-            RETURN p.repo_url as repo_url, p.commit as commit
-            ORDER BY p.repo_url, p.commit
-            """
-        )
+    with neomodel.db.read_transaction:
+        all_projects = schema.Project.nodes.all()
         projects = [
-            public_model.ProjectInfo(
-                repo_url=record["repo_url"], commit=record["commit"]
+            public_model.DependencyListResponse(
+                repo_url=record.repo_url,
+                commit=record.commit,
+                has_valid_dependencies=record.has_valid_dependencies,
+                has_valid_proof=record.has_valid_proof,
+                has_valid_paper=record.has_valid_paper,
+                paper_url=f"pdf-service/{base64.urlsafe_b64encode(record.repo_url.encode()).decode()}/{record.commit}/main.pdf",
             )
-            for record in result
+            for record in all_projects
         ]
         return projects
 
