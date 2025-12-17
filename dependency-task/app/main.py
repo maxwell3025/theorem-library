@@ -6,8 +6,7 @@ This container:
 1. Receives task data via URL and COMMIT_HASH environment variables
 2. Clones the Git repository at the specified commit
 3. Parses math-dependencies.json and validates against lakefile.toml
-4. Stores results in Neo4j
-5. Exits with status code
+4. Exits with status code
 """
 
 import os
@@ -21,12 +20,9 @@ import typing
 import httpx
 import tomli
 from common.dependency_service import public_model
+from common import logging_config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+logging_config.configure_logging()
 
 logger = logging.getLogger("dependency-task")
 

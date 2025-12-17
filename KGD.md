@@ -197,13 +197,47 @@ This shows that I know how to setup my architecture to do load balancing.
 
 ---
 
-**Knowledge Goal Number & Name:** \[KG7\] Service Communication
+**Knowledge Goal Number & Name:** \[KG6\] Reliability, Scalability, and Maintainability
 
-**File Reference:** TODO
+**File Reference:** `rabbitmq/definitions.json:1:35`
 
 **Code Fragment:**
 ```
-TODO
+{
+    "users": [
+        {
+            "name": "guest",
+            "password": "guest",
+            "tags": "administrator"
+        }
+    ],
+    "vhosts": [
+        {
+            "name": "/"
+        }
+    ],
+    "permissions": [
+        {
+            "user": "guest",
+            "vhost": "/",
+            "configure": ".*",
+            "write": ".*",
+            "read": ".*"
+        }
+    ],
+    "policies": [
+        {
+            "vhost": "/",
+            "name": "max-queue-length",
+            "pattern": ".*",
+            "apply-to": "queues",
+            "definition": {
+                "max-length": 3,
+                "overflow": "reject-publish"
+            }
+        }
+    ]
+}
 ```
 
 **Justification:**

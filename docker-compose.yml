@@ -253,9 +253,15 @@ services:
     depends_on:
       dependency-service:
         condition: service_healthy
+      git-server:
+        condition: service_healthy
       latex-service:
         condition: service_healthy
+      neo4j:
+        condition: service_healthy
       pdf-service:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       verification-service:
         condition: service_healthy

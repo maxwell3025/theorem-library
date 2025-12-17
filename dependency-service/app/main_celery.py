@@ -3,7 +3,6 @@ from common.config import config
 import celery
 import celery.utils.log
 import docker
-import os
 
 configure_logging()
 
@@ -50,15 +49,6 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
     }
 
     try:
-        neo4j_user = os.getenv("NEO4J_USER")
-        if neo4j_user is None:
-            raise ValueError("NEO4J_USER environment variable is not set")
-        neo4j_password = os.getenv("NEO4J_PASSWORD")
-        if neo4j_password is None:
-            raise ValueError("NEO4J_PASSWORD environment variable is not set")
-        neo4j_host = config.neo4j.host
-        neo4j_bolt_port = config.neo4j.bolt_port
-
         # Run a new container instance of the dependency-task
         container = client.containers.run(
             image=f"{project_name}-{dependency_task_name}",
@@ -68,8 +58,6 @@ def clone_and_index_repository(repo_url: str, commit: str) -> dict:
             environment={
                 "URL": repo_url,
                 "COMMIT_HASH": commit,
-                "NEO4J_USER": neo4j_user,
-                "NEO4J_PASSWORD": neo4j_password,
             },
         )
 

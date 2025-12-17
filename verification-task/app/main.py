@@ -14,12 +14,9 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
+from common import logging_config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+logging_config.configure_logging()
 
 logger = logging.getLogger("verification-task")
 
