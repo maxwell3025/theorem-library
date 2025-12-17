@@ -70,25 +70,8 @@ async def health_check() -> fastapi.Response:
     )
 
 
-@app.post("/projects", response_model=public_model.AddProjectResponse)
-async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
-    """Add a project by cloning its repository at a specific commit and indexing dependencies."""
-    logger.info(f"Received request to add project {request.repo_url}@{request.commit}")
-
-    # Ensure the project exists in the database
-    with neomodel.db.write_transaction:
-        new_project: schema.Project = schema.Project.nodes.get_or_none(
-            repo_url=request.repo_url,
-            commit=request.commit,
-        )
-        if new_project is None:
-            new_project = schema.Project(
-                repo_url=request.repo_url,
-                commit=request.commit,
-            )
-
-    # Queue the Celery task for dependency indexing
-
+async def queue_project(request: public_model.ProjectInfo) -> fastapi.Response:
+    """Trigger all of the"""
     try:
         task = main_celery.clone_and_index_repository.delay(
             request.repo_url,
@@ -123,6 +106,13 @@ async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
             )
     except Exception as e:
         logger.error(f"Exception while requesting verification: {e}")
+        return fastapi.responses.JSONResponse(
+            content={
+                "error": "Failed to request verification",
+                "message": str(e),
+            },
+            status_code=500,
+        )
 
     # Request latex service to compile the paper
     try:
@@ -142,6 +132,13 @@ async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
             )
     except Exception as e:
         logger.error(f"Exception while requesting LaTeX compilation: {e}")
+        return fastapi.responses.JSONResponse(
+            content={
+                "error": "Failed to request LaTeX compilation",
+                "message": str(e),
+            },
+            status_code=500,
+        )
 
     return fastapi.responses.JSONResponse(
         content=public_model.AddProjectResponse(
@@ -150,6 +147,129 @@ async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
         ).model_dump(),
         status_code=202,
     )
+
+
+@app.post("/projects", response_model=public_model.AddProjectResponse)
+async def add_project(request: public_model.ProjectInfo) -> fastapi.Response:
+    """Add a project by cloning its repository at a specific commit and indexing dependencies."""
+    logger.info(f"Received request to add project {request.repo_url}@{request.commit}")
+
+    with neomodel.db.read_transaction:
+        project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+        if project is not None:
+            return fastapi.responses.JSONResponse(
+                content={
+                    "error": "Project already exists in the database",
+                },
+                status_code=409,
+            )
+
+    schema.Project(
+        repo_url=request.repo_url,
+        commit=request.commit,
+    )
+
+    return await queue_project(request)
+
+
+@app.put("/projects", response_model=public_model.AddProjectResponse)
+async def requeue_project(request: public_model.ProjectInfo) -> fastapi.Response:
+    """Add a project by cloning its repository at a specific commit and indexing dependencies."""
+    logger.info(
+        f"Received request to requeue project {request.repo_url}@{request.commit}"
+    )
+
+    with neomodel.db.write_transaction:
+        project: schema.Project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+        if project is None:
+            schema.Project(
+                repo_url=request.repo_url,
+                commit=request.commit,
+            )
+
+    return await queue_project(request)
+
+
+@app.get("/projects", response_model=public_model.DependencyListResponse)
+async def read_project(request: public_model.ProjectInfo) -> fastapi.Response:
+    """Get the info for a given project"""
+    logger.info(f"Received request to get project {request.repo_url}@{request.commit}")
+
+    with neomodel.db.read_transaction:
+        project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+
+        if project is None:
+            return fastapi.responses.JSONResponse(
+                content={
+                    "error": "Project does not exist in the database",
+                },
+                status_code=404,
+            )
+
+        return fastapi.responses.JSONResponse(
+            content=public_model.DependencyListResponse(
+                repo_url=project.repo_url,
+                commit=project.commit,
+                has_valid_dependencies=project.has_valid_dependencies,
+                has_valid_proof=project.has_valid_proof,
+                has_valid_paper=project.has_valid_paper,
+                paper_url=f"pdf-service/{base64.urlsafe_b64encode(project.repo_url.encode()).decode()}/{project.commit}/main.pdf",
+            ).model_dump(),
+            status_code=200,
+        )
+
+
+@app.delete("/projects")
+async def delete_project(request: public_model.ProjectInfo) -> fastapi.Response:
+    """Get the info for a given project"""
+    logger.info(
+        f"Received request to delete project {request.repo_url}@{request.commit}"
+    )
+
+    with neomodel.db.write_transaction:
+        rows, headers = neomodel.db.cypher_query(
+            """
+            MATCH (d:Project)-[:DEPENDS_ON]->(p:Project {repo_url: $repo_url, commit: $commit})
+            RETURN DISTINCT properties(d) as dependencies
+            """,
+            params=request.model_dump(),
+        )
+
+        if len(rows) > 0:
+            dependent_projects = [
+                f"{result[0]['repo_url']}@{result[0]['commit']}" for result in rows
+            ]
+            return fastapi.responses.JSONResponse(
+                content={
+                    "error": "Project cannot be deleted because other projects depend on it",
+                    "dependent_projects": dependent_projects,
+                },
+                status_code=409,
+            )
+
+        project = schema.Project.nodes.get_or_none(
+            repo_url=request.repo_url,
+            commit=request.commit,
+        )
+
+        if project is not None:
+            project.delete()
+
+        return fastapi.responses.JSONResponse(
+            content={
+                "message": "Project deleted successfully",
+            },
+            status_code=204,
+        )
 
 
 @app.post("/internal/projects", response_model=public_model.AddDependencyResponse)
@@ -194,7 +314,7 @@ async def internal_add_project(
         logger.info(
             f"Requesting indexing for dependency {dependency.repo_url}@{dependency.commit}"
         )
-        await httpx.AsyncClient().post(
+        await httpx.AsyncClient().put(
             url="http://dependency-service:8000/projects",
             json=public_model.ProjectInfo(
                 repo_url=dependency.repo_url,
@@ -268,7 +388,7 @@ async def internal_update_paper_status(
     )
 
 
-@app.get("/projects")
+@app.get("/projects/all")
 async def list_projects() -> typing.List[public_model.ProjectInfo]:
     """List all projects in the database."""
     with GraphDatabase.driver(
