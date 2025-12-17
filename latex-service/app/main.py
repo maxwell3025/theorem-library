@@ -46,7 +46,18 @@ async def health_check(x_correlation_id: str = fastapi.Header()) -> fastapi.Resp
 async def compile_latex(
     request: model.LaTeXRequest,
 ) -> fastapi.Response:
-    task = main_celery.process_latex_task.delay(request.model_dump_json())
+    try:
+        task = main_celery.process_latex_task.delay(request.model_dump_json())
+    except Exception as e:
+        logger.error(f"Failed to queue task: {e}")
+        return fastapi.responses.JSONResponse(
+            content={
+                "error": "Failed to queue task",
+                "message": str(e),
+                "reason": "Task queue may be full or unavailable",
+            },
+            status_code=503,
+        )
 
     with common.api.redis.get_redis_client() as redis_client:
         redis_key = request.redis_key()

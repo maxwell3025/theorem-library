@@ -10,7 +10,12 @@ from common.dependency_service import public_model
 
 configure_logging()
 
-celery_app = celery.Celery("main_celery", broker="amqp://rabbitmq//", worker_prefetch_multiplier=1)
+celery_app = celery.Celery(
+    "main_celery",
+    broker="amqp://rabbitmq//",
+    worker_prefetch_multiplier=1,
+    broker_transport_options={"confirm_publish": True, "max_retries": 0},
+)
 
 configure_logging_celery(celery_app)
 
