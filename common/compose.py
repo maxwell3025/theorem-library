@@ -114,10 +114,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "-c",
                 f"{config.concurrent_tasks_per_worker}",
             ],
-            environment=[
-                "NEO4J_USER=${NEO4J_USER}",
-                "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
-            ],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
             },
