@@ -6,11 +6,12 @@ import celery.utils.log
 import docker
 import httpx
 import model
+import os
 from common.dependency_service import public_model
 
 configure_logging()
 
-celery_app = celery.Celery("main_celery", broker="amqp://rabbitmq//")
+celery_app = celery.Celery("main_celery", broker="amqp://rabbitmq//", worker_prefetch_multiplier=1)
 
 configure_logging_celery(celery_app)
 
@@ -23,7 +24,7 @@ project_name = config.project_name
 
 @celery_app.task(queue="verification")
 def process_verification_task(task_data_raw: str) -> None:
-    logger.info(f"Processing verification task with data: {task_data_raw}")
+    logger.info(f"Processing verification task with data: {task_data_raw} on pid={os.getpid()}")
 
     task_data = model.VerificationRequest.model_validate_json(task_data_raw)
     redis_key = task_data.redis_key()

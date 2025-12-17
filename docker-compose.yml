@@ -201,6 +201,9 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 2
     healthcheck:
       interval: 1s
       retries: 10
@@ -388,6 +391,9 @@ services:
         condition: service_healthy
       verification-redis:
         condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 2
     healthcheck:
       interval: 1s
       retries: 10

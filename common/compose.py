@@ -180,6 +180,10 @@ class DockerComposeConfig(ComposeSpecification):
                 timeout="2s",
             ),
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],
+            deploy={
+                "mode": "replicated",
+                "replicas": 2,
+            },
         ),
         "verification-task": ServiceWithDefaults(
             build=BuildItemWithDefaults(
@@ -246,6 +250,10 @@ class DockerComposeConfig(ComposeSpecification):
                 timeout="2s",
             ),
             volumes=["/var/run/docker.sock:/var/run/docker.sock"],
+            deploy={
+                "mode": "replicated",
+                "replicas": 2,
+            },
         ),
         "latex-task": ServiceWithDefaults(
             build=BuildItemWithDefaults(
