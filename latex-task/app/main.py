@@ -158,9 +158,8 @@ def main():
 
         compilation_success, compilation_output = compile_latex(work_dir)
 
-        logger.info(f"Compilation output:\n{compilation_output}")
         if not compilation_success:
-            logger.error("LaTeX compilation failed")
+            logger.error(f"LaTeX compilation failed with output:\n{compilation_output}")
             sys.exit(1)
 
         with open(work_dir / "latex-source" / "main.pdf", "rb") as pdf_file:

@@ -68,8 +68,9 @@ def process_verification_task(task_data_raw: str) -> None:
                 f"Verification task container completed with exit code: {exit_code}"
             )
 
-            logs = container.logs().decode("utf-8")
-            logger.info(f"Verification task logs:\n{logs}")
+            if exit_code != 0:
+                logs = container.logs().decode("utf-8")
+                logger.info(f"Verification task logs:\n{logs}")
 
         except Exception as e:
             exit_code = -1

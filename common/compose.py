@@ -55,7 +55,6 @@ class DockerComposeConfig(ComposeSpecification):
     services: Dict[str, ServiceModernized] = {
         "neo4j": ServiceWithDefaults(
             image="neo4j:5",
-            container_name="neo4j",
             volumes=["neo4j_data:/data", "neo4j_logs:/logs"],
             ports=[
                 "8011:7474",
@@ -87,8 +86,6 @@ class DockerComposeConfig(ComposeSpecification):
                 additional_contexts=["common=./common"],
                 dockerfile="Dockerfile",
             ),
-            container_name="dependency-service",
-            ports=["8001:8000"],
             environment=[
                 "NEO4J_USER=${NEO4J_USER}",
                 "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
@@ -96,6 +93,10 @@ class DockerComposeConfig(ComposeSpecification):
             depends_on={
                 "neo4j": {"condition": Condition.service_healthy},
                 "dependency-worker": {"condition": Condition.service_healthy},
+            },
+            deploy={
+                "mode": "replicated",
+                "replicas": 10,
             },
         ),
         "dependency-worker": ServiceWithDefaults(
@@ -111,8 +112,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "-Q",
                 "dependency",
             ],
-            container_name="dependency-worker",
-            ports=["8012:8000"],
             environment=[
                 "NEO4J_USER=${NEO4J_USER}",
                 "NEO4J_PASSWORD=${NEO4J_PASSWORD}",
@@ -135,7 +134,6 @@ class DockerComposeConfig(ComposeSpecification):
         ),
         "verification-redis": ServiceWithDefaults(
             image="redis:7-alpine",
-            container_name="verification-redis",
             ports=["8009:6379"],
             healthcheck=HealthcheckWithDefaults(
                 test=["CMD", "redis-cli", "ping"],
@@ -146,8 +144,6 @@ class DockerComposeConfig(ComposeSpecification):
                 context="./verification-service",
             ),
             command=["python", "main_fastapi.py"],
-            container_name="verification-service",
-            ports=["8002:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
@@ -166,8 +162,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "-Q",
                 "verification",
             ],
-            container_name="verification-worker",
-            ports=["8008:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "verification-redis": {"condition": Condition.service_healthy},
@@ -187,7 +181,6 @@ class DockerComposeConfig(ComposeSpecification):
         ),
         "rabbitmq": ServiceWithDefaults(
             image="rabbitmq:4-management",
-            container_name="rabbitmq",
             volumes=["./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"],
             ports=["8006:5672", "8007:15672"],
             healthcheck=HealthcheckWithDefaults(
@@ -198,13 +191,10 @@ class DockerComposeConfig(ComposeSpecification):
             build=BuildItemWithDefaults(
                 context="./pdf-service",
             ),
-            container_name="pdf-service",
-            ports=["8003:8000"],
             volumes=["pdf_data:/data"],
         ),
         "latex-redis": ServiceWithDefaults(
             image="redis:7-alpine",
-            container_name="latex-redis",
             ports=["8015:6379"],
             healthcheck=HealthcheckWithDefaults(
                 test=["CMD", "redis-cli", "ping"],
@@ -215,8 +205,6 @@ class DockerComposeConfig(ComposeSpecification):
                 context="./latex-service",
             ),
             command=["python", "main.py"],
-            container_name="latex-service",
-            ports=["8004:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "latex-redis": {"condition": Condition.service_healthy},
@@ -235,8 +223,6 @@ class DockerComposeConfig(ComposeSpecification):
                 "-Q",
                 "latex",
             ],
-            container_name="latex-worker",
-            ports=["8013:8000"],
             depends_on={
                 "rabbitmq": {"condition": Condition.service_healthy},
                 "latex-redis": {"condition": Condition.service_healthy},
@@ -271,8 +257,6 @@ class DockerComposeConfig(ComposeSpecification):
                 context="./git-server",
                 additional_contexts=[],
             ),
-            container_name="git-server",
-            ports=["8005:8000"],
             healthcheck=HealthcheckWithDefaults(
                 test=[
                     "CMD",

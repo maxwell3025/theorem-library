@@ -214,8 +214,7 @@ def main() -> int:
         )
 
     if post_result.is_success:
-        result_data = public_model.AddDependencyResponse.model_validate(post_result.json())
-        logger.info(f"Dependency task completed successfully and queued subtasks {result_data.subtask_ids}")
+        logger.info(f"Dependency task completed successfully and queued {len(dependencies)} dependencies.")
         return 0
     return 1
 

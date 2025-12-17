@@ -13,12 +13,14 @@ services:
       - common=./common
       context: ./dependency-service
       dockerfile: Dockerfile
-    container_name: dependency-service
     depends_on:
       dependency-worker:
         condition: service_healthy
       neo4j:
         condition: service_healthy
+    deploy:
+      mode: replicated
+      replicas: 10
     environment:
     - NEO4J_USER=${NEO4J_USER}
     - NEO4J_PASSWORD=${NEO4J_PASSWORD}
@@ -33,8 +35,6 @@ services:
       timeout: 1s
     networks:
     - theorem-library
-    ports:
-    - 8001:8000
     restart: unless-stopped
   dependency-task:
     build:
@@ -70,7 +70,6 @@ services:
     - --loglevel=info
     - -Q
     - dependency
-    container_name: dependency-worker
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -91,8 +90,6 @@ services:
       timeout: 2s
     networks:
     - theorem-library
-    ports:
-    - 8012:8000
     restart: unless-stopped
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
@@ -101,7 +98,6 @@ services:
       additional_contexts: []
       context: ./git-server
       dockerfile: Dockerfile
-    container_name: git-server
     healthcheck:
       interval: 1s
       retries: 10
@@ -116,11 +112,8 @@ services:
       timeout: 1s
     networks:
     - theorem-library
-    ports:
-    - 8005:8000
     restart: unless-stopped
   latex-redis:
-    container_name: latex-redis
     healthcheck:
       interval: 1s
       retries: 10
@@ -145,7 +138,6 @@ services:
     command:
     - python
     - main.py
-    container_name: latex-service
     depends_on:
       latex-redis:
         condition: service_healthy
@@ -162,8 +154,6 @@ services:
       timeout: 1s
     networks:
     - theorem-library
-    ports:
-    - 8004:8000
     restart: unless-stopped
   latex-task:
     build:
@@ -199,7 +189,6 @@ services:
     - --loglevel=info
     - -Q
     - latex
-    container_name: latex-worker
     depends_on:
       latex-redis:
         condition: service_healthy
@@ -219,13 +208,10 @@ services:
       timeout: 2s
     networks:
     - theorem-library
-    ports:
-    - 8013:8000
     restart: unless-stopped
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
   neo4j:
-    container_name: neo4j
     environment:
     - NEO4J_AUTH=${NEO4J_USER}/${NEO4J_PASSWORD}
     - NEO4J_server_memory_heap_initial__size=512m
@@ -277,7 +263,6 @@ services:
       - common=./common
       context: ./pdf-service
       dockerfile: Dockerfile
-    container_name: pdf-service
     healthcheck:
       interval: 1s
       retries: 10
@@ -289,13 +274,10 @@ services:
       timeout: 1s
     networks:
     - theorem-library
-    ports:
-    - 8003:8000
     restart: unless-stopped
     volumes:
     - pdf_data:/data
   rabbitmq:
-    container_name: rabbitmq
     healthcheck:
       interval: 1s
       retries: 10
@@ -316,7 +298,6 @@ services:
     volumes:
     - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
   verification-redis:
-    container_name: verification-redis
     healthcheck:
       interval: 1s
       retries: 10
@@ -341,7 +322,6 @@ services:
     command:
     - python
     - main_fastapi.py
-    container_name: verification-service
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -358,8 +338,6 @@ services:
       timeout: 1s
     networks:
     - theorem-library
-    ports:
-    - 8002:8000
     restart: unless-stopped
   verification-task:
     build:
@@ -395,7 +373,6 @@ services:
     - --loglevel=info
     - -Q
     - verification
-    container_name: verification-worker
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -415,8 +392,6 @@ services:
       timeout: 2s
     networks:
     - theorem-library
-    ports:
-    - 8008:8000
     restart: unless-stopped
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock

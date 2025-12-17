@@ -39,7 +39,7 @@ NEO4J_URI = f"bolt://{NEO4J_USER}:{NEO4J_PASSWORD}@{NEO4J_HOST}:{NEO4J_BOLT_PORT
 async def lifespan(app: fastapi.FastAPI):
     neomodel_config = neomodel.get_config()
     neomodel_config.database_url = NEO4J_URI
-    neomodel.db.install_labels(schema.Project, quiet=False, stdout=sys.stderr)
+    neomodel.db.install_all_labels()
     logger.info("Connected to Neo4j and ensured all labels are installed.")
     yield
 
@@ -144,10 +144,6 @@ async def internal_add_project(
     request: public_model.AddProjectInternalRequest,
 ) -> fastapi.Response:
     """Internal endpoint to add project dependencies directly to the database."""
-
-    neomodel_config = neomodel.get_config()
-    neomodel_config.database_url = NEO4J_URI
-
     logger.info(f"Connecting to Neo4j")
     with neomodel.db.write_transaction:
         new_project: schema.Project = schema.Project.nodes.get_or_none(

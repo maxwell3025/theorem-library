@@ -67,8 +67,9 @@ def process_latex_task(task_data_raw: str) -> None:
             exit_code = result.get("StatusCode", -1)
             logger.info(f"LaTeX task container completed with exit code: {exit_code}")
 
-            logs = container.logs().decode("utf-8")
-            logger.info(f"LaTeX task logs:\n{logs}")
+            if exit_code != 0:
+                logs = container.logs().decode("utf-8")
+                logger.info(f"LaTeX task logs:\n{logs}")
 
         except Exception as e:
             exit_code = -1

@@ -123,14 +123,12 @@ def main():
         # Verify Lean proof
         verification_success, verification_output = verify_lean_proof(work_dir)
 
-        # Log verification output
-        logger.info(f"Verification output:\n{verification_output}")
 
         if verification_success:
             logger.info("Verification completed successfully")
             sys.exit(0)
         else:
-            logger.error("Verification failed")
+            logger.error(f"Verification failed with output:\n{verification_output}")
             sys.exit(1)
 
 

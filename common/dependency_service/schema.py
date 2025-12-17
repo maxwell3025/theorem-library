@@ -6,8 +6,9 @@ ternary_choices = (
     ("unknown", "unknown"),
 )
 class Project(neomodel.StructuredNode):
-    repo_url = neomodel.StringProperty(required=True)
-    commit = neomodel.StringProperty(required=True)
+    # Note: indexes are required for neomodel to add this node type to the schema
+    repo_url = neomodel.StringProperty(required=True, index=True)
+    commit = neomodel.StringProperty(required=True, index=True)
 
     has_valid_dependencies = neomodel.StringProperty(choices=ternary_choices, default="unknown")
     has_valid_proof = neomodel.StringProperty(choices=ternary_choices, default="unknown")
