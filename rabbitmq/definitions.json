@@ -27,7 +27,7 @@
             "pattern": ".*",
             "apply-to": "queues",
             "definition": {
-                "max-length": 3,
+                "max-length": 100,
                 "overflow": "reject-publish"
             }
         }

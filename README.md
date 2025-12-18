@@ -1,4 +1,7 @@
 # Theorem Library
+
+This system provides a library for sharing and referencing formally verified mathematical proofs written in Lean 4. It allows mathematicians to publish both human-readable PDF papers and machine-verifiable proof packages, tracking dependencies between mathematical results. The system automatically verifies Lean 4 proofs, compiles LaTeX documents into PDFs, and validates dependency consistency across theorem packages. Users interact via a REST API to upload proofs from Git repositories, query compiled papers and metadata, and analyze dependency graphs. The architecture uses Docker Compose to orchestrate multiple microservices including dependency management, verification, LaTeX compilation, and PDF serving, backed by Neo4j and RabbitMQ. 
+
 ## Requirements
 You must have Docker, Docker Compose, and Python (tested for Python 3.11.4).
 You should also be running this in a Unix-like environment, which Docker requires.

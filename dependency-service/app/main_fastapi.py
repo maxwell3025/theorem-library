@@ -69,7 +69,7 @@ async def health_check() -> fastapi.Response:
 
 
 async def queue_project(request: public_model.ProjectInfo) -> fastapi.Response:
-    """Trigger all of the"""
+    """Trigger all of the downstream tasks for a project"""
     try:
         task = main_celery.clone_and_index_repository.delay(
             request.repo_url,
