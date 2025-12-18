@@ -28,6 +28,12 @@ Run the start script, which generates `docker-compose.yml` and runs Docker Compo
 ./start.sh >/dev/null 2>&1 &
 ```
 
+Now wait until
+```bash
+docker compose ps
+```
+Indicates that all services are started
+
 To test the commands, first query `git/repositories` to get a list of urls and commits.
 ```bash
 curl http://localhost/git/repositories | jq
@@ -55,7 +61,7 @@ Make sure that the output includes the following repositories
   ]
 }
 ```
-The commit hashes should be the same, but if they differ, modify the commit hashes in the test commands to match your output.
+The commit hashes may be different. If this is the case, replace `9c4a...` with whatever your commit hash is for `advanced-proofs` in your build.
 
 Now, we can test the commands.
 
