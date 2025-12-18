@@ -1,4 +1,4 @@
-# [KG1\] Endpoint Definitions
+# \[KG1\] Endpoint Definitions
 
 **File Reference:**
 `verification-service/app/main_fastapi.py:24-42`
@@ -99,7 +99,7 @@ Finally, it is replicated twice, which shows that the container is configured wi
 
 # \[KG4 & KG5\] API Gateway & Load Balancing
 
-**File Reference:** nginx/nginx.conf:1-3
+**File Reference:** `nginx/nginx.conf:1-3`
 
 **Code Fragment:**
 ```
